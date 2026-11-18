@@ -15,6 +15,15 @@ jobs:
       - run: npm run typecheck
   build:
     runs-on: ubuntu-latest
+    env:
+      PORT: 5001
+      NODE_ENV: test
+      MONGODB_URI: mongodb://127.0.0.1:27017/fixmate
+      BETTER_AUTH_SECRET: ci-secret
+      CLIENT_URL: http://localhost:3000
+      STRIPE_SECRET_KEY: sk_test_ci
+      STRIPE_WEBHOOK_SECRET: whsec_ci
+      IMGBB_API_KEY: ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
