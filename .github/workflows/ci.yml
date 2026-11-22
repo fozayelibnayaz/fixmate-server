@@ -1,32 +1,22 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
 jobs:
-  lint:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+        with:
+          node-version: 24
+          cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm run typecheck
-  build:
-    runs-on: ubuntu-latest
-    env:
-      PORT: 5001
-      NODE_ENV: test
-      MONGODB_URI: mongodb://127.0.0.1:27017/fixmate
-      BETTER_AUTH_SECRET: ci-secret
-      CLIENT_URL: http://localhost:3000
-      STRIPE_SECRET_KEY: sk_test_ci
-      STRIPE_WEBHOOK_SECRET: whsec_ci
-      IMGBB_API_KEY: ci
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
-      - run: npm ci
+      - run: npm run test:unit
       - run: npm run build

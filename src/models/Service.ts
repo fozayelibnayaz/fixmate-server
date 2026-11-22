@@ -1,14 +1,17 @@
-import { Schema, model, type Document } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
+import {
+  APPROVAL_STATUSES,
+  CATEGORIES,
+  SERVICE_MODES,
+  type ApprovalStatus,
+  type Category,
+  type ServiceMode,
+} from "../config/constants";
 
-export type ServiceCategory =
-  | "Smartphone" | "Laptop & PC" | "AC" | "Refrigerator" | "TV" | "Washing Machine" | "Electrical";
-
-export type ServiceMode = "Home Visit" | "Shop Drop-off";
-export type ApprovalStatus = "pending" | "approved" | "rejected";
-
-export interface IService extends Document {
+export interface IService {
+  _id: string;
   title: string;
-  category: ServiceCategory;
+  category: Category;
   description: string;
   image: string;
   basePrice: number;
@@ -17,33 +20,35 @@ export interface IService extends Document {
   serviceArea: string;
   technicianName: string;
   technicianEmail: string;
-  technicianPlan?: string;
   approvalStatus: ApprovalStatus;
   isAvailable: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
-const ServiceSchema = new Schema<IService>(
+const serviceSchema = new Schema<IService>(
   {
     title: { type: String, required: true, trim: true },
-    category: { type: String, required: true, enum: ["Smartphone","Laptop & PC","AC","Refrigerator","TV","Washing Machine","Electrical"] },
+    category: { type: String, enum: CATEGORIES, required: true, index: true },
     description: { type: String, required: true },
     image: { type: String, required: true },
-    basePrice: { type: Number, required: true, min: 0 },
+    basePrice: { type: Number, required: true, min: 1, index: true },
     estimatedDuration: { type: String, required: true },
-    serviceMode: { type: String, required: true, enum: ["Home Visit","Shop Drop-off"] },
+    serviceMode: { type: String, enum: SERVICE_MODES, required: true },
     serviceArea: { type: String, required: true },
     technicianName: { type: String, required: true },
-    technicianEmail: { type: String, required: true },
-    technicianPlan: { type: String, default: 'free' },
-    approvalStatus: { type: String, enum: ["pending","approved","rejected"], default: "pending" },
+    technicianEmail: { type: String, required: true, lowercase: true, index: true },
+    approvalStatus: {
+      type: String,
+      enum: APPROVAL_STATUSES,
+      default: "pending",
+      index: true,
+    },
     isAvailable: { type: Boolean, default: true },
-    createdAt: { type: Date, default: Date.now },
   },
-  { timestamps: false }
+  { collection: "services", timestamps: true, versionKey: false },
 );
 
-ServiceSchema.index({ approvalStatus: 1, isAvailable: 1, createdAt: -1 });
-ServiceSchema.index({ technicianEmail: 1 });
+serviceSchema.index({ approvalStatus: 1, isAvailable: 1, createdAt: -1 });
 
-export const Service = model<IService>("Service", ServiceSchema);
+export const Service: Model<IService> = model<IService>("Service", serviceSchema);

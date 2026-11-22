@@ -1,5 +1,21 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files
 .env
-.env.local
+.env.*
+!.env.example
+
+# TypeScript / lint caches
+*.tsbuildinfo
+.eslintcache
+
+# Test output
+coverage/
+
+# OS / editor files
+.DS_Store
 *.log

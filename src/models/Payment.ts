@@ -1,6 +1,7 @@
-import { Schema, model, type Document } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
-export interface IPayment extends Document {
+export interface IPayment {
+  _id: string;
   bookingId: string;
   serviceTitle: string;
   customerName: string;
@@ -13,24 +14,26 @@ export interface IPayment extends Document {
   stripeSessionId: string;
   paymentStatus: "paid";
   paidAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const PaymentSchema = new Schema<IPayment>(
+const paymentSchema = new Schema<IPayment>(
   {
-    bookingId: { type: String, required: true, unique: true },
+    bookingId: { type: String, required: true, index: true },
     serviceTitle: { type: String, required: true },
     customerName: { type: String, required: true },
-    customerEmail: { type: String, required: true, index: true },
+    customerEmail: { type: String, required: true, lowercase: true, index: true },
     technicianName: { type: String, required: true },
-    technicianEmail: { type: String, required: true },
+    technicianEmail: { type: String, required: true, lowercase: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: "usd" },
     transactionId: { type: String, required: true },
     stripeSessionId: { type: String, required: true, unique: true },
-    paymentStatus: { type: String, default: "paid" },
+    paymentStatus: { type: String, enum: ["paid"], default: "paid" },
     paidAt: { type: Date, default: Date.now },
   },
-  { timestamps: false }
+  { collection: "payments", timestamps: true, versionKey: false },
 );
 
-export const Payment = model<IPayment>("Payment", PaymentSchema);
+export const Payment: Model<IPayment> = model<IPayment>("Payment", paymentSchema);

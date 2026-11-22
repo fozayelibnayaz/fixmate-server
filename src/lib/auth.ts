@@ -1,20 +1,51 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { MongoClient } from "mongodb";
-import { env } from "../config/env.js";
+import type { IncomingHttpHeaders } from "node:http";
+import { allowedOrigins, env } from "../config/env";
 
-const client = new MongoClient(env.mongoUri);
+const mongoClient = new MongoClient(env.mongodbUri);
+const database = mongoClient.db();
+
 export const auth = betterAuth({
-  database: mongodbAdapter(client.db()),
-  emailAndPassword: { enabled: true, minPasswordLength: 6 },
+  appName: "FixMate",
+  baseURL: env.betterAuthUrl,
+  secret: env.betterAuthSecret,
+  database: mongodbAdapter(database, { client: mongoClient, transaction: false }),
+  trustedOrigins: allowedOrigins,
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 6,
+    autoSignIn: true,
+  },
+  session: {
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
+  },
   user: {
+    modelName: "users",
     additionalFields: {
-      role: { type: "string", required: false, defaultValue: "customer", input: true },
+      // input:false means a client can never sign up as admin.
+      role: {
+        type: "string",
+        required: true,
+        defaultValue: "customer",
+        input: false,
+      },
       phone: { type: "string", required: false },
       area: { type: "string", required: false },
       bio: { type: "string", required: false },
-      plan: { type: "string", defaultValue: "free" },
     },
   },
-  secret: env.betterAuthSecret,
 });
+
+export const authHandler = toNodeHandler(auth);
+
+/** Closes the dedicated BetterAuth MongoClient (used by the seed script and tests). */
+export const closeAuthClient = async (): Promise<void> => {
+  await mongoClient.close();
+};
+
+export const getBetterAuthSession = async (headers: IncomingHttpHeaders) =>
+  auth.api.getSession({ headers: fromNodeHeaders(headers) });
