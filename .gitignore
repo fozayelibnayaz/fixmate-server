@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+api/
 
 # Environment files
 .env
@@ -19,3 +20,5 @@ coverage/
 # OS / editor files
 .DS_Store
 *.log
+.vercel
+.env*

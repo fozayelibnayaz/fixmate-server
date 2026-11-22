@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
+import { Types } from "mongoose";
+import { ROLES, type Role } from "../config/constants";
 import { ApiError, asyncHandler } from "../lib/http";
 import { profileSchema } from "../lib/validation";
-import { User } from "../models/User";
+import { User, type IUser } from "../models/User";
 import { Service } from "../models/Service";
 import { Booking } from "../models/Booking";
 import { Payment } from "../models/Payment";
@@ -25,19 +27,54 @@ export const listUsers = asyncHandler(async (_req: Request, res: Response) => {
   res.json({ users: users.map(publicUser) });
 });
 
+// BetterAuth writes some users with a native ObjectId `_id` while the User
+// schema models `_id` as a string. findById only matches string ids, so fall
+// back to a raw ObjectId lookup for those accounts.
+const findTargetUser = async (id: string) => {
+  const document = await User.findById(id);
+  if (document) {
+    return {
+      user: document as unknown as IUser,
+      save: async (nextRole: Role) => {
+        document.role = nextRole;
+        await document.save();
+      },
+    };
+  }
+  if (!Types.ObjectId.isValid(id)) return null;
+
+  const objectId = new Types.ObjectId(id);
+  const raw = await User.collection.findOne({ _id: objectId });
+  if (!raw) return null;
+  const user = raw as unknown as IUser;
+  return {
+    user,
+    save: async (nextRole: Role) => {
+      await User.collection.updateOne({ _id: objectId }, { $set: { role: nextRole } });
+      user.role = nextRole;
+    },
+  };
+};
+
 export const updateUserRole = asyncHandler(async (req: Request, res: Response) => {
   const { role } = req.body as { role?: string };
-  if (!role || !["customer", "technician", "admin"].includes(role)) {
+  if (!role || !ROLES.includes(role as (typeof ROLES)[number])) {
     throw new ApiError(400, "Invalid role");
   }
-  const target = await User.findById(req.params.id);
+  const target = await findTargetUser(req.params.id);
   if (!target) throw new ApiError(404, "User not found");
-  if (target.email === req.auth?.email.toLowerCase()) {
+  const nextRole = role as Role;
+  if (target.user.email === req.auth?.email.toLowerCase()) {
     throw new ApiError(400, "You cannot change your own role");
   }
-  target.role = role as typeof target.role;
-  await target.save();
-  res.json({ user: publicUser(target) });
+  if (target.user.role === "admin" && nextRole !== "admin") {
+    const adminCount = await User.countDocuments({ role: "admin" });
+    if (adminCount <= 1) {
+      throw new ApiError(400, "At least one admin must remain");
+    }
+  }
+  await target.save(nextRole);
+  res.json({ user: publicUser(target.user) });
 });
 
 export const adminStats = asyncHandler(async (_req: Request, res: Response) => {

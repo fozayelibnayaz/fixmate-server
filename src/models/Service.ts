@@ -1,4 +1,4 @@
-import { Schema, model, type Model } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 import {
   APPROVAL_STATUSES,
   CATEGORIES,
@@ -51,4 +51,5 @@ const serviceSchema = new Schema<IService>(
 
 serviceSchema.index({ approvalStatus: 1, isAvailable: 1, createdAt: -1 });
 
-export const Service: Model<IService> = model<IService>("Service", serviceSchema);
+export const Service: Model<IService> =
+  (models.Service as Model<IService>) ?? model<IService>("Service", serviceSchema);

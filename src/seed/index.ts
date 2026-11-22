@@ -11,6 +11,7 @@ const technicianSeeds = [
     name: "Rahim Uddin",
     email: "technician@fixmate.test",
     password: "FixMate123!",
+    role: "technician" as const,
     phone: "+8801711000001",
     area: "Dhanmondi, Dhaka",
     bio: "12 years repairing smartphones and laptops. Apple-certified technician.",
@@ -19,6 +20,7 @@ const technicianSeeds = [
     name: "Karim Ahmed",
     email: "tech2@fixmate.test",
     password: "FixMate123!",
+    role: "technician" as const,
     phone: "+8801711000002",
     area: "Mirpur, Dhaka",
     bio: "AC, refrigerator and washing machine specialist. Same-day home visits.",
@@ -30,6 +32,7 @@ const customerSeeds = [
     name: "Demo Customer",
     email: "customer@fixmate.test",
     password: "FixMate123!",
+    role: "customer" as const,
     phone: "+8801811000003",
     area: "Gulshan, Dhaka",
     bio: "",
@@ -40,7 +43,7 @@ const serviceSeeds = [
   {
     title: "iPhone Screen Replacement",
     category: "Smartphone",
-    basePrice: 8000,
+    basePrice: 10500,
     estimatedDuration: "2-3 hours",
     serviceMode: "Shop Drop-off",
     serviceArea: "Dhanmondi, Dhaka",
@@ -51,7 +54,7 @@ const serviceSeeds = [
   {
     title: "Samsung Galaxy Battery Swap",
     category: "Smartphone",
-    basePrice: 2500,
+    basePrice: 2200,
     estimatedDuration: "1 hour",
     serviceMode: "Shop Drop-off",
     serviceArea: "Dhanmondi, Dhaka",
@@ -62,7 +65,7 @@ const serviceSeeds = [
   {
     title: "Water-damaged Phone Recovery",
     category: "Smartphone",
-    basePrice: 3500,
+    basePrice: 3000,
     estimatedDuration: "1 day",
     serviceMode: "Shop Drop-off",
     serviceArea: "Dhanmondi, Dhaka",
@@ -73,7 +76,7 @@ const serviceSeeds = [
   {
     title: "Laptop Motherboard Diagnostics",
     category: "Laptop & PC",
-    basePrice: 1500,
+    basePrice: 1800,
     estimatedDuration: "1 day",
     serviceMode: "Shop Drop-off",
     serviceArea: "Dhanmondi, Dhaka",
@@ -84,7 +87,7 @@ const serviceSeeds = [
   {
     title: "Laptop Deep Cleaning & Thermal Paste",
     category: "Laptop & PC",
-    basePrice: 1800,
+    basePrice: 2000,
     estimatedDuration: "3 hours",
     serviceMode: "Home Visit",
     serviceArea: "Dhanmondi, Dhaka",
@@ -95,7 +98,7 @@ const serviceSeeds = [
   {
     title: "AC Gas Refill & Servicing",
     category: "AC",
-    basePrice: 2500,
+    basePrice: 3000,
     estimatedDuration: "2 hours",
     serviceMode: "Home Visit",
     serviceArea: "Mirpur, Dhaka",
@@ -106,7 +109,7 @@ const serviceSeeds = [
   {
     title: "AC Compressor Replacement",
     category: "AC",
-    basePrice: 12000,
+    basePrice: 22000,
     estimatedDuration: "1 day",
     serviceMode: "Home Visit",
     serviceArea: "Mirpur, Dhaka",
@@ -117,7 +120,7 @@ const serviceSeeds = [
   {
     title: "Refrigerator Cooling Repair",
     category: "Refrigerator",
-    basePrice: 2500,
+    basePrice: 3500,
     estimatedDuration: "4 hours",
     serviceMode: "Home Visit",
     serviceArea: "Mirpur, Dhaka",
@@ -128,7 +131,7 @@ const serviceSeeds = [
   {
     title: "Refrigerator Compressor Check",
     category: "Refrigerator",
-    basePrice: 2000,
+    basePrice: 2200,
     estimatedDuration: "3 hours",
     serviceMode: "Home Visit",
     serviceArea: "Mirpur, Dhaka",
@@ -139,7 +142,7 @@ const serviceSeeds = [
   {
     title: "Smart TV Screen Repair",
     category: "TV",
-    basePrice: 5500,
+    basePrice: 7000,
     estimatedDuration: "1 day",
     serviceMode: "Home Visit",
     serviceArea: "Mirpur, Dhaka",
@@ -150,7 +153,7 @@ const serviceSeeds = [
   {
     title: "Washing Machine Motor Repair",
     category: "Washing Machine",
-    basePrice: 3500,
+    basePrice: 4500,
     estimatedDuration: "4 hours",
     serviceMode: "Home Visit",
     serviceArea: "Mirpur, Dhaka",
@@ -161,7 +164,7 @@ const serviceSeeds = [
   {
     title: "Home Electrical Wiring Inspection",
     category: "Electrical",
-    basePrice: 1500,
+    basePrice: 1800,
     estimatedDuration: "2 hours",
     serviceMode: "Home Visit",
     serviceArea: "Mirpur, Dhaka",
@@ -175,20 +178,31 @@ const ensureUser = async (data: {
   name: string;
   email: string;
   password: string;
+  role: "customer" | "technician";
   phone: string;
   area: string;
   bio: string;
 }) => {
-  if (!(await User.findOne({ email: data.email }))) {
+  const existing = await User.findOne({ email: data.email });
+  if (!existing) {
     await auth.api.signUpEmail({
       body: { name: data.name, email: data.email, password: data.password },
     });
   }
   // BetterAuth writes ObjectId _ids into `users`; Mongoose casts them to strings.
   // Update by email so we never try to save a string id back as an ObjectId filter.
+  // The role is only assigned when the account is first created, so roles an
+  // admin later changes are never silently reset by re-running the seed.
   await User.updateOne(
     { email: data.email },
-    { $set: { phone: data.phone, area: data.area, bio: data.bio } },
+    {
+      $set: {
+        phone: data.phone,
+        area: data.area,
+        bio: data.bio,
+        ...(existing ? {} : { role: data.role }),
+      },
+    },
   );
   const user = await User.findOne({ email: data.email });
   if (!user) throw new Error(`Could not create ${data.email}`);
@@ -199,7 +213,8 @@ const run = async () => {
   await connectDatabase();
 
   const adminEmail = env.adminEmail.toLowerCase();
-  if (!(await User.findOne({ email: adminEmail }))) {
+  const existingAdmin = await User.findOne({ email: adminEmail });
+  if (!existingAdmin) {
     await auth.api.signUpEmail({
       body: {
         name: "FixMate Admin",
@@ -207,13 +222,12 @@ const run = async () => {
         password: env.adminPassword,
       },
     });
+    await User.updateOne({ email: adminEmail }, { $set: { role: "admin" } });
   }
-  await User.updateOne({ email: adminEmail }, { $set: { role: "admin" } });
 
   const technicians = [];
   for (const technician of technicianSeeds) {
     await ensureUser(technician);
-    await User.updateOne({ email: technician.email }, { $set: { role: "technician" } });
     const technicianUser = await User.findOne({ email: technician.email });
     if (!technicianUser) throw new Error(`Could not update ${technician.email}`);
     technicians.push(technicianUser);

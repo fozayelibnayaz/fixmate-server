@@ -41,8 +41,8 @@ apiRouter.patch("/bookings/:id/cancel", verifyToken, verifyCustomer, bookings.ca
 apiRouter.get("/bookings/technician", verifyToken, verifyTechnician, bookings.technicianBookings);
 apiRouter.patch("/bookings/:id/status", verifyToken, verifyTechnician, bookings.updateBookingStatus);
 
-// Payments. Webhook uses the raw-body parser mounted in app.ts.
-apiRouter.post("/payments/webhook", payments.stripeWebhook);
+// Payments. The webhook is mounted in app.ts before the JSON parser so Stripe
+// signatures are verified against the untouched raw body.
 apiRouter.post("/payments/create-checkout-session", verifyToken, verifyCustomer, payments.createCheckoutSession);
 apiRouter.get("/payments/verify", verifyToken, verifyCustomer, payments.verifyPayment);
 apiRouter.get("/payments/my", verifyToken, verifyCustomer, payments.myPayments);

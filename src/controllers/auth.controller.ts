@@ -8,9 +8,12 @@ import { User } from "../models/User";
 import { signInSchema, signUpSchema } from "../lib/validation";
 import type { IUser } from "../models/User";
 
+// Vercel client and API use different vercel.app subdomains, which are
+// cross-site. A Secure + SameSite=None cookie is required for credentialed
+// requests between them in production.
 const cookieOptions = {
   httpOnly: true,
-  sameSite: "lax" as const,
+  sameSite: (isProduction ? "none" : "lax") as "none" | "lax",
   secure: isProduction,
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -99,7 +102,11 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const signOut = asyncHandler(async (req: Request, res: Response) => {
-  res.clearCookie(TOKEN_COOKIE, { path: "/" });
+  res.clearCookie(TOKEN_COOKIE, {
+    path: "/",
+    sameSite: cookieOptions.sameSite,
+    secure: cookieOptions.secure,
+  });
   try {
     await auth.api.signOut({ headers: fromNodeHeaders(req.headers) });
   } catch {

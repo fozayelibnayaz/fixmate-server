@@ -1,4 +1,4 @@
-import { Schema, model, type Model } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 
 export interface IPayment {
   _id: string;
@@ -36,4 +36,5 @@ const paymentSchema = new Schema<IPayment>(
   { collection: "payments", timestamps: true, versionKey: false },
 );
 
-export const Payment: Model<IPayment> = model<IPayment>("Payment", paymentSchema);
+export const Payment: Model<IPayment> =
+  (models.Payment as Model<IPayment>) ?? model<IPayment>("Payment", paymentSchema);

@@ -1,4 +1,4 @@
-import { Schema, model, type Model } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 import {
   BOOKING_STATUSES,
   PAYMENT_STATUSES,
@@ -70,4 +70,5 @@ const bookingSchema = new Schema<IBooking>(
 bookingSchema.index({ customerEmail: 1, status: 1 });
 bookingSchema.index({ technicianEmail: 1, status: 1 });
 
-export const Booking: Model<IBooking> = model<IBooking>("Booking", bookingSchema);
+export const Booking: Model<IBooking> =
+  (models.Booking as Model<IBooking>) ?? model<IBooking>("Booking", bookingSchema);

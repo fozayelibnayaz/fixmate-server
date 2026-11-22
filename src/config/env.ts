@@ -39,3 +39,26 @@ export const allowedOrigins = Array.from(
 );
 
 export const isProduction = env.nodeEnv === "production";
+
+if (isProduction) {
+  const required = [
+    "MONGODB_URI",
+    "BETTER_AUTH_URL",
+    "BETTER_AUTH_SECRET",
+    "JWT_SECRET",
+    "CLIENT_URL",
+    "CORS_ALLOWED_ORIGINS",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_SUCCESS_URL",
+    "STRIPE_CANCEL_URL",
+  ] as const;
+
+  const missing = required.filter((name) => !process.env[name]?.trim());
+  if (missing.length) {
+    throw new Error(`[fixmate] Missing production environment variables: ${missing.join(", ")}`);
+  }
+  if (env.jwtSecret.startsWith("dev-only") || env.betterAuthSecret.startsWith("dev-only")) {
+    throw new Error("[fixmate] Replace development secrets before deploying to production");
+  }
+}

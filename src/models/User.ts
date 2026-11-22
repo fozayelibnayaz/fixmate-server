@@ -1,4 +1,4 @@
-import { Schema, model, type Model } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 import { ROLES, type Role } from "../config/constants";
 
 export interface IUser {
@@ -28,4 +28,4 @@ const userSchema = new Schema<IUser>(
   { collection: "users", timestamps: true, versionKey: false },
 );
 
-export const User: Model<IUser> = model<IUser>("User", userSchema);
+export const User: Model<IUser> = (models.User as Model<IUser>) ?? model<IUser>("User", userSchema);
