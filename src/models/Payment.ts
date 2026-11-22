@@ -27,7 +27,7 @@ const paymentSchema = new Schema<IPayment>(
     technicianName: { type: String, required: true },
     technicianEmail: { type: String, required: true, lowercase: true },
     amount: { type: Number, required: true },
-    currency: { type: String, default: "usd" },
+    currency: { type: String, default: "bdt" },
     transactionId: { type: String, required: true },
     stripeSessionId: { type: String, required: true, unique: true },
     paymentStatus: { type: String, enum: ["paid"], default: "paid" },

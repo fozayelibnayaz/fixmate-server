@@ -28,7 +28,7 @@ const recordPayment = async (session: Stripe.Checkout.Session) => {
         technicianName: booking.technicianName,
         technicianEmail: booking.technicianEmail,
         amount: booking.finalAmount,
-        currency: "usd",
+        currency: "bdt",
         transactionId:
           typeof session.payment_intent === "string"
             ? session.payment_intent
@@ -68,7 +68,7 @@ export const createCheckoutSession = asyncHandler(async (req: Request, res: Resp
       {
         quantity: 1,
         price_data: {
-          currency: "usd",
+          currency: "bdt",
           unit_amount: toCents(booking.finalAmount),
           product_data: { name: booking.serviceTitle },
         },

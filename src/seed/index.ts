@@ -36,22 +36,139 @@ const customerSeeds = [
   },
 ];
 
-const image = (id: string) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`;
-
 const serviceSeeds = [
-  ["iPhone Screen Replacement", "Smartphone", 45, "2-3 hours", "Shop Drop-off", "Dhanmondi, Dhaka", "photo-1511707171634-5f897ff02aa9", 0],
-  ["Samsung Galaxy Battery Swap", "Smartphone", 28, "1 hour", "Shop Drop-off", "Dhanmondi, Dhaka", "photo-1610945415295-d9bbf067e59c", 0],
-  ["Water-damaged Phone Recovery", "Smartphone", 65, "1 day", "Shop Drop-off", "Dhanmondi, Dhaka", "photo-1592750475338-74b7b21085ab", 0],
-  ["Laptop Motherboard Diagnostics", "Laptop & PC", 55, "1 day", "Shop Drop-off", "Dhanmondi, Dhaka", "photo-1517336714731-489689fd1ca8", 0],
-  ["Laptop Deep Cleaning & Thermal Paste", "Laptop & PC", 32, "3 hours", "Home Visit", "Dhanmondi, Dhaka", "photo-1496181133206-80ce9b88a853", 0],
-  ["AC Gas Refill & Servicing", "AC", 48, "2 hours", "Home Visit", "Mirpur, Dhaka", "photo-1631545806609-a7bfaa0a59f3", 1],
-  ["AC Compressor Replacement", "AC", 120, "1 day", "Home Visit", "Mirpur, Dhaka", "photo-1628744876497-ad6b6cef3cd8", 1],
-  ["Refrigerator Cooling Repair", "Refrigerator", 70, "4 hours", "Home Visit", "Mirpur, Dhaka", "photo-1571175443880-49e1d25b2bc5", 1],
-  ["Refrigerator Compressor Check", "Refrigerator", 60, "3 hours", "Home Visit", "Mirpur, Dhaka", "photo-1585659722983-3a675dabf23d", 1],
-  ["Smart TV Screen Repair", "TV", 95, "1 day", "Home Visit", "Mirpur, Dhaka", "photo-1593359677879-a4bb92f829d1", 1],
-  ["Washing Machine Motor Repair", "Washing Machine", 52, "4 hours", "Home Visit", "Mirpur, Dhaka", "photo-1626806787461-102c1bfaaea1", 1],
-  ["Home Electrical Wiring Inspection", "Electrical", 40, "2 hours", "Home Visit", "Mirpur, Dhaka", "photo-1621905251189-08b45d6a269e", 1],
+  {
+    title: "iPhone Screen Replacement",
+    category: "Smartphone",
+    basePrice: 8000,
+    estimatedDuration: "2-3 hours",
+    serviceMode: "Shop Drop-off",
+    serviceArea: "Dhanmondi, Dhaka",
+    image: "/services/smartphone.svg",
+    technicianIndex: 0,
+    description: "Cracked, flickering or unresponsive screen? We fit a quality display, test touch and brightness, and check the cameras before handing your phone back.",
+  },
+  {
+    title: "Samsung Galaxy Battery Swap",
+    category: "Smartphone",
+    basePrice: 2500,
+    estimatedDuration: "1 hour",
+    serviceMode: "Shop Drop-off",
+    serviceArea: "Dhanmondi, Dhaka",
+    image: "/services/smartphone.svg",
+    technicianIndex: 0,
+    description: "If your battery drains quickly or the phone shuts down suddenly, we replace it with a reliable cell and check charging and heat with it fitted.",
+  },
+  {
+    title: "Water-damaged Phone Recovery",
+    category: "Smartphone",
+    basePrice: 3500,
+    estimatedDuration: "1 day",
+    serviceMode: "Shop Drop-off",
+    serviceArea: "Dhanmondi, Dhaka",
+    image: "/services/smartphone.svg",
+    technicianIndex: 0,
+    description: "We clean and inspect a wet phone, check the board for corrosion and try to recover your photos and contacts. Parts needed for a full repair are quoted separately.",
+  },
+  {
+    title: "Laptop Motherboard Diagnostics",
+    category: "Laptop & PC",
+    basePrice: 1500,
+    estimatedDuration: "1 day",
+    serviceMode: "Shop Drop-off",
+    serviceArea: "Dhanmondi, Dhaka",
+    image: "/services/laptop.svg",
+    technicianIndex: 0,
+    description: "No power, no display or random shutdowns? We test the board, power circuit and connections, then explain exactly what needs fixing before any work starts.",
+  },
+  {
+    title: "Laptop Deep Cleaning & Thermal Paste",
+    category: "Laptop & PC",
+    basePrice: 1800,
+    estimatedDuration: "3 hours",
+    serviceMode: "Home Visit",
+    serviceArea: "Dhanmondi, Dhaka",
+    image: "/services/laptop.svg",
+    technicianIndex: 0,
+    description: "We remove dust from the fans and vents, replace old thermal paste and check temperatures so your laptop runs quieter and stays cool under load.",
+  },
+  {
+    title: "AC Gas Refill & Servicing",
+    category: "AC",
+    basePrice: 2500,
+    estimatedDuration: "2 hours",
+    serviceMode: "Home Visit",
+    serviceArea: "Mirpur, Dhaka",
+    image: "/services/ac.svg",
+    technicianIndex: 1,
+    description: "Weak cooling? We inspect for leaks, clean the indoor and outdoor units, then top up the correct gas if it is actually needed. No gas is added without a pressure check.",
+  },
+  {
+    title: "AC Compressor Replacement",
+    category: "AC",
+    basePrice: 12000,
+    estimatedDuration: "1 day",
+    serviceMode: "Home Visit",
+    serviceArea: "Mirpur, Dhaka",
+    image: "/services/ac.svg",
+    technicianIndex: 1,
+    description: "For a compressor that has failed, we supply and fit a compatible unit, vacuum the lines, recharge the gas and test cooling. A confirmed quote is shared before fitting.",
+  },
+  {
+    title: "Refrigerator Cooling Repair",
+    category: "Refrigerator",
+    basePrice: 2500,
+    estimatedDuration: "4 hours",
+    serviceMode: "Home Visit",
+    serviceArea: "Mirpur, Dhaka",
+    image: "/services/refrigerator.svg",
+    technicianIndex: 1,
+    description: "Not cooling, over-freezing or making strange noises? We check the thermostat, fan, relay and gas pressure, then repair the fault and test the temperature.",
+  },
+  {
+    title: "Refrigerator Compressor Check",
+    category: "Refrigerator",
+    basePrice: 2000,
+    estimatedDuration: "3 hours",
+    serviceMode: "Home Visit",
+    serviceArea: "Mirpur, Dhaka",
+    image: "/services/refrigerator.svg",
+    technicianIndex: 1,
+    description: "We test the compressor, start relay and electrical supply to find out whether your fridge needs a simple repair or a replacement part. Replacement cost is quoted first.",
+  },
+  {
+    title: "Smart TV Screen Repair",
+    category: "TV",
+    basePrice: 5500,
+    estimatedDuration: "1 day",
+    serviceMode: "Home Visit",
+    serviceArea: "Mirpur, Dhaka",
+    image: "/services/tv.svg",
+    technicianIndex: 1,
+    description: "Cracked panel, black lines, no picture or backlight trouble? We inspect the screen and backlight, then replace the damaged part and test picture and sound.",
+  },
+  {
+    title: "Washing Machine Motor Repair",
+    category: "Washing Machine",
+    basePrice: 3500,
+    estimatedDuration: "4 hours",
+    serviceMode: "Home Visit",
+    serviceArea: "Mirpur, Dhaka",
+    image: "/services/washing-machine.svg",
+    technicianIndex: 1,
+    description: "If the drum will not spin, makes a grinding noise or trips the power, we test the motor, capacitor and belt, then repair or replace the faulty part.",
+  },
+  {
+    title: "Home Electrical Wiring Inspection",
+    category: "Electrical",
+    basePrice: 1500,
+    estimatedDuration: "2 hours",
+    serviceMode: "Home Visit",
+    serviceArea: "Mirpur, Dhaka",
+    image: "/services/electrical.svg",
+    technicianIndex: 1,
+    description: "A safe check of switches, sockets, breakers and visible wiring. You get a clear list of anything that needs attention, with no repair work done without approval.",
+  },
 ] as const;
 
 const ensureUser = async (data: {
@@ -103,32 +220,39 @@ const run = async () => {
   }
   const customer = await ensureUser(customerSeeds[0]);
 
-  if ((await Service.countDocuments()) === 0) {
-    for (const seed of serviceSeeds) {
-      const [title, category, basePrice, estimatedDuration, serviceMode, serviceArea, photo, techIndex] = seed;
-      const technician = technicians[techIndex];
-      await Service.create({
-        title,
-        category,
-        description: `${title} by a verified FixMate technician. Includes a full diagnostic, genuine parts where needed, and a service warranty.`,
-        image: image(photo),
-        basePrice,
-        estimatedDuration,
-        serviceMode,
-        serviceArea,
-        technicianName: technician.name,
-        technicianEmail: technician.email,
-        approvalStatus: "approved",
-        isAvailable: true,
-      });
-    }
+  for (const seed of serviceSeeds) {
+    const technician = technicians[seed.technicianIndex];
+    await Service.findOneAndUpdate(
+      { title: seed.title },
+      {
+        $set: {
+          title: seed.title,
+          category: seed.category,
+          description: seed.description,
+          image: seed.image,
+          basePrice: seed.basePrice,
+          estimatedDuration: seed.estimatedDuration,
+          serviceMode: seed.serviceMode,
+          serviceArea: seed.serviceArea,
+          technicianName: technician.name,
+          technicianEmail: technician.email,
+          approvalStatus: "approved",
+          isAvailable: true,
+        },
+      },
+      { upsert: true },
+    );
   }
 
+  const seededServices = await Service.find({
+    title: { $in: serviceSeeds.map((seed) => seed.title) },
+  }).lean();
+
   if ((await Booking.countDocuments()) === 0) {
-    const services = await Service.find().sort({ createdAt: 1 }).lean();
     const statuses = ["requested", "accepted", "in-progress", "completed", "cancelled"] as const;
     for (const [index, status] of statuses.entries()) {
-      const service = services[index];
+      const service = seededServices.find((item) => item.title === serviceSeeds[index].title);
+      if (!service) continue;
       const booking = await Booking.create({
         serviceId: service._id,
         serviceTitle: service.title,
@@ -145,7 +269,7 @@ const run = async () => {
         problemDescription: "The device stopped working after a power surge and needs a full diagnostic.",
         status,
         finalAmount: service.basePrice,
-        paymentStatus: status === "completed" ? "unpaid" : "unpaid",
+        paymentStatus: "unpaid",
         statusHistory: [{ status, changedAt: new Date() }],
       });
       if (status === "completed") {
@@ -157,7 +281,7 @@ const run = async () => {
           technicianName: booking.technicianName,
           technicianEmail: booking.technicianEmail,
           amount: booking.finalAmount,
-          currency: "usd",
+          currency: "bdt",
           transactionId: `seed_pi_${index}`,
           stripeSessionId: `seed_cs_${index}`,
           paymentStatus: "paid",
@@ -167,6 +291,18 @@ const run = async () => {
         await booking.save();
       }
     }
+  }
+
+  // Keep existing seed records in sync when prices or images are updated.
+  for (const service of seededServices) {
+    await Booking.updateMany(
+      { serviceTitle: service.title },
+      { $set: { serviceImage: service.image, basePrice: service.basePrice, finalAmount: service.basePrice } },
+    );
+    await Payment.updateMany(
+      { serviceTitle: service.title },
+      { $set: { amount: service.basePrice, currency: "bdt" } },
+    );
   }
 
   console.log("[fixmate] seed complete");
