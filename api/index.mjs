@@ -164720,6 +164720,10 @@ var Payment = models2.Payment ?? model2("Payment", paymentSchema);
 
 // src/controllers/payments.controller.ts
 var toCents = (amount) => Math.round(amount * 100);
+var checkoutMetadata = (booking) => ({
+  bookingId: String(booking._id),
+  customerEmail: String(booking.customerEmail)
+});
 var recordPayment = async (session) => {
   const bookingId = session.metadata?.bookingId;
   const customerEmail = session.metadata?.customerEmail;
@@ -164777,7 +164781,7 @@ var createCheckoutSession = asyncHandler(async (req, res) => {
         }
       }
     ],
-    metadata: { bookingId: booking._id, customerEmail: booking.customerEmail },
+    metadata: checkoutMetadata(booking),
     success_url: `${env.stripeSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: env.stripeCancelUrl
   });

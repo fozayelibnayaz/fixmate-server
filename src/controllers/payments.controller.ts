@@ -8,6 +8,12 @@ import { Payment } from "../models/Payment";
 
 const toCents = (amount: number) => Math.round(amount * 100);
 
+/** Stripe metadata only accepts strings, while Mongoose ids are ObjectIds. */
+export const checkoutMetadata = (booking: { _id: unknown; customerEmail: unknown }) => ({
+  bookingId: String(booking._id),
+  customerEmail: String(booking.customerEmail),
+});
+
 const recordPayment = async (session: Stripe.Checkout.Session) => {
   const bookingId = session.metadata?.bookingId;
   const customerEmail = session.metadata?.customerEmail;
@@ -74,7 +80,7 @@ export const createCheckoutSession = asyncHandler(async (req: Request, res: Resp
         },
       },
     ],
-    metadata: { bookingId: booking._id, customerEmail: booking.customerEmail },
+    metadata: checkoutMetadata(booking),
     success_url: `${env.stripeSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: env.stripeCancelUrl,
   });
