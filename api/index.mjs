@@ -145153,6 +145153,7 @@ var env = {
     process.env.STRIPE_CANCEL_URL,
     "http://localhost:3000/payment/cancel"
   ),
+  proMonthlyPriceBdt: Number(first(process.env.PRO_MONTHLY_PRICE_BDT, "499")),
   adminEmail: first(process.env.ADMIN_EMAIL, "admin@fixmate.test"),
   adminPassword: first(process.env.ADMIN_PASSWORD, "ChangeMe123!")
 };
@@ -145225,6 +145226,69 @@ var connectDatabase = async () => {
     connectionPromise = null;
     throw error63;
   }
+};
+
+// src/lib/invoice.ts
+var escapePdfText = (value) => value.replace(/[^\x20-\x7E]/g, "?").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+var buildInvoicePdf = (payment) => {
+  const lines = [
+    { y: 780, size: 24, bold: true, text: "FixMate" },
+    { y: 752, size: 11, text: "Smart Device & Home Appliance Repair Service" },
+    { y: 710, size: 16, bold: true, text: "PAYMENT INVOICE" },
+    { y: 675, size: 11, bold: true, text: "Payment" },
+    { y: 658, size: 11, text: `ID: ${String(payment._id)}` },
+    { y: 641, size: 11, text: `Transaction: ${payment.transactionId}` },
+    { y: 624, size: 11, text: `Session: ${payment.stripeSessionId}` },
+    { y: 607, size: 11, text: `Date: ${new Date(payment.paidAt).toLocaleString("en-GB")}` },
+    { y: 570, size: 11, bold: true, text: "Customer" },
+    { y: 553, size: 11, text: payment.customerName },
+    { y: 536, size: 11, text: payment.customerEmail },
+    { y: 499, size: 11, bold: true, text: "Service" },
+    { y: 482, size: 11, text: payment.serviceTitle },
+    { y: 465, size: 11, text: `Technician: ${payment.technicianName}` },
+    { y: 428, size: 11, bold: true, text: "Payment summary" },
+    { y: 411, size: 11, text: `Service amount: BDT ${payment.amount.toFixed(2)}` },
+    { y: 394, size: 11, text: `Status: ${payment.paymentStatus.toUpperCase()}` },
+    { y: 360, size: 14, bold: true, text: `Total paid: BDT ${payment.amount.toFixed(2)}` },
+    { y: 310, size: 10, text: "Thank you for choosing FixMate. Pay after the job is done." }
+  ];
+  const stream = lines.map((line2) => `BT /${line2.bold ? "F2" : "F1"} ${line2.size} Tf 60 ${line2.y} Td (${escapePdfText(line2.text)}) Tj ET`).join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    `<< /Length ${Buffer.byteLength(stream, "latin1")} >>
+stream
+${stream}
+endstream`
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [];
+  objects.forEach((object2, index) => {
+    offsets.push(Buffer.byteLength(pdf, "latin1"));
+    pdf += `${index + 1} 0 obj
+${object2}
+endobj
+`;
+  });
+  const xrefOffset = Buffer.byteLength(pdf, "latin1");
+  pdf += `xref
+0 ${objects.length + 1}
+0000000000 65535 f 
+`;
+  offsets.forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n 
+`;
+  });
+  pdf += `trailer
+<< /Size ${objects.length + 1} /Root 1 0 R >>
+startxref
+${xrefOffset}
+%%EOF
+`;
+  return Buffer.from(pdf, "latin1");
 };
 
 // ../node_modules/stripe/esm/Error.js
@@ -164623,6 +164687,8 @@ var import_mongoose2 = __toESM(require_mongoose2(), 1);
 
 // src/config/constants.ts
 var ROLES = ["customer", "technician", "admin"];
+var PLANS = ["free", "pro"];
+var FREE_SERVICE_LIMIT = 3;
 var CATEGORIES = [
   "Smartphone",
   "Laptop & PC",
@@ -164643,6 +164709,7 @@ var BOOKING_STATUSES = [
   "cancelled"
 ];
 var PAYMENT_STATUSES = ["unpaid", "paid"];
+var PAYMENT_KINDS = ["booking", "pro_subscription"];
 var ALLOWED_TRANSITIONS = {
   requested: ["accepted", "rejected"],
   accepted: ["in-progress"],
@@ -164701,7 +164768,14 @@ var { Schema: Schema2, model: model2 } = import_mongoose3.default;
 var models2 = import_mongoose3.default.models;
 var paymentSchema = new Schema2(
   {
-    bookingId: { type: String, required: true, index: true },
+    // One paid booking can never produce two Payment documents, even when a
+    // duplicate Checkout session or a retried webhook arrives.
+    bookingId: {
+      type: String,
+      required: true,
+      unique: true,
+      partialFilterExpression: { kind: "booking" }
+    },
     serviceTitle: { type: String, required: true },
     customerName: { type: String, required: true },
     customerEmail: { type: String, required: true, lowercase: true, index: true },
@@ -164711,6 +164785,8 @@ var paymentSchema = new Schema2(
     currency: { type: String, default: "bdt" },
     transactionId: { type: String, required: true },
     stripeSessionId: { type: String, required: true, unique: true },
+    kind: { type: String, enum: PAYMENT_KINDS, default: "booking", index: true },
+    plan: { type: String, enum: PLANS, default: void 0 },
     paymentStatus: { type: String, enum: ["paid"], default: "paid" },
     paidAt: { type: Date, default: Date.now }
   },
@@ -164718,23 +164794,106 @@ var paymentSchema = new Schema2(
 );
 var Payment = models2.Payment ?? model2("Payment", paymentSchema);
 
+// src/models/User.ts
+var import_mongoose4 = __toESM(require_mongoose2(), 1);
+var { Schema: Schema3, model: model3 } = import_mongoose4.default;
+var models3 = import_mongoose4.default.models;
+var userSchema = new Schema3(
+  {
+    _id: { type: String, required: true },
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    image: { type: String, default: "" },
+    role: { type: String, enum: ROLES, default: "customer", index: true },
+    phone: { type: String, default: "" },
+    area: { type: String, default: "" },
+    bio: { type: String, default: "" },
+    plan: { type: String, enum: PLANS, default: "free", index: true }
+  },
+  { collection: "users", timestamps: true, versionKey: false }
+);
+var User = models3.User ?? model3("User", userSchema);
+
 // src/controllers/payments.controller.ts
 var toCents = (amount) => Math.round(amount * 100);
 var checkoutMetadata = (booking) => ({
   bookingId: String(booking._id),
-  customerEmail: String(booking.customerEmail)
+  customerEmail: String(booking.customerEmail),
+  kind: "booking"
 });
+var subscriptionMetadata = (user) => ({
+  bookingId: "",
+  customerEmail: user.email,
+  kind: "pro_subscription",
+  userId: String(user._id),
+  userEmail: user.email,
+  plan: "pro"
+});
+var transactionIdFrom = (session) => typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? session.id;
+var markBookingPaid = async (booking) => {
+  if (booking.paymentStatus === "paid" && booking.statusHistory.some((item) => item.status === "paid")) {
+    return;
+  }
+  booking.paymentStatus = "paid";
+  if (!booking.statusHistory.some((item) => item.status === "paid")) {
+    booking.statusHistory.push({ status: "paid", changedAt: /* @__PURE__ */ new Date() });
+  }
+  await booking.save();
+};
+var recordSubscriptionPayment = async (session) => {
+  const userEmail = session.metadata?.userEmail;
+  if (session.payment_status !== "paid" || !userEmail) return null;
+  if (session.amount_total !== toCents(env.proMonthlyPriceBdt)) return null;
+  const user = await User.findOne({ email: userEmail.toLowerCase() });
+  if (!user || user.role !== "technician") return null;
+  const payment = await Payment.findOneAndUpdate(
+    { stripeSessionId: session.id },
+    {
+      $setOnInsert: {
+        bookingId: "",
+        serviceTitle: "FixMate Pro Technician Plan",
+        customerName: user.name,
+        customerEmail: user.email,
+        technicianName: user.name,
+        technicianEmail: user.email,
+        amount: env.proMonthlyPriceBdt,
+        currency: "bdt",
+        transactionId: transactionIdFrom(session),
+        stripeSessionId: session.id,
+        kind: "pro_subscription",
+        plan: "pro",
+        paymentStatus: "paid",
+        paidAt: /* @__PURE__ */ new Date()
+      }
+    },
+    { upsert: true, new: true }
+  );
+  if (user.plan !== "pro") {
+    user.plan = "pro";
+    await user.save();
+  }
+  return payment;
+};
 var recordPayment = async (session) => {
+  if (session.metadata?.kind === "pro_subscription") {
+    return recordSubscriptionPayment(session);
+  }
   const bookingId = session.metadata?.bookingId;
   const customerEmail = session.metadata?.customerEmail;
   if (!bookingId || !customerEmail || session.payment_status !== "paid") return null;
   const booking = await Booking.findOne({ _id: bookingId, customerEmail });
   if (!booking) return null;
+  if (session.amount_total !== toCents(booking.finalAmount)) return null;
+  const existing = await Payment.findOne({ bookingId: booking._id, kind: "booking" });
+  if (existing) {
+    await markBookingPaid(booking);
+    return existing;
+  }
   const payment = await Payment.findOneAndUpdate(
-    { stripeSessionId: session.id },
+    { bookingId: String(booking._id), kind: "booking" },
     {
       $setOnInsert: {
-        bookingId: booking._id,
+        bookingId: String(booking._id),
         serviceTitle: booking.serviceTitle,
         customerName: booking.customerName,
         customerEmail: booking.customerEmail,
@@ -164742,18 +164901,16 @@ var recordPayment = async (session) => {
         technicianEmail: booking.technicianEmail,
         amount: booking.finalAmount,
         currency: "bdt",
-        transactionId: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? session.id,
+        transactionId: transactionIdFrom(session),
         stripeSessionId: session.id,
+        kind: "booking",
         paymentStatus: "paid",
         paidAt: /* @__PURE__ */ new Date()
       }
     },
     { upsert: true, new: true }
   );
-  if (booking.paymentStatus !== "paid") {
-    booking.paymentStatus = "paid";
-    await booking.save();
-  }
+  await markBookingPaid(booking);
   return payment;
 };
 var createCheckoutSession = asyncHandler(async (req, res) => {
@@ -164765,7 +164922,8 @@ var createCheckoutSession = asyncHandler(async (req, res) => {
   if (booking.status !== "completed") {
     throw new ApiError(400, "Payment is only available after the job is completed");
   }
-  if (booking.paymentStatus === "paid") {
+  const paidPayment = await Payment.findOne({ bookingId: booking._id, kind: "booking" });
+  if (booking.paymentStatus === "paid" || paidPayment) {
     throw new ApiError(409, "This job has already been paid");
   }
   const stripe = getStripe();
@@ -164787,11 +164945,47 @@ var createCheckoutSession = asyncHandler(async (req, res) => {
   });
   res.json({ url: session.url, sessionId: session.id });
 });
+var createProCheckoutSession = asyncHandler(async (req, res) => {
+  const user = await User.findOne({ email: req.auth?.email.toLowerCase() });
+  if (!user) throw new ApiError(404, "User not found");
+  if (user.role !== "technician") throw new ApiError(403, "Only technicians can upgrade to Pro");
+  if (user.plan === "pro") throw new ApiError(409, "You are already on the Pro plan");
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "bdt",
+          unit_amount: toCents(env.proMonthlyPriceBdt),
+          product_data: { name: "FixMate Pro Technician Plan" }
+        }
+      }
+    ],
+    metadata: subscriptionMetadata(user),
+    success_url: `${env.stripeSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: env.stripeCancelUrl
+  });
+  res.json({ url: session.url, sessionId: session.id });
+});
 var verifyPayment = asyncHandler(async (req, res) => {
   const sessionId = typeof req.query.session_id === "string" ? req.query.session_id : req.body?.sessionId;
   if (!sessionId) throw new ApiError(400, "session_id is required");
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.retrieve(sessionId);
+  if (session.metadata?.kind === "pro_subscription") {
+    if (session.metadata?.userEmail !== req.auth?.email.toLowerCase() || req.auth?.role !== "technician") {
+      throw new ApiError(403, "This payment does not belong to you");
+    }
+    const payment2 = await recordSubscriptionPayment(session);
+    if (!payment2 || session.payment_status !== "paid") {
+      res.json({ paid: false, status: session.payment_status });
+      return;
+    }
+    res.json({ paid: true, payment: payment2 });
+    return;
+  }
   if (session.metadata?.customerEmail !== req.auth?.email.toLowerCase()) {
     throw new ApiError(403, "This payment does not belong to you");
   }
@@ -164823,7 +165017,21 @@ var stripeWebhook = asyncHandler(async (req, res) => {
   res.json({ received: true });
 });
 var myPayments = asyncHandler(async (req, res) => {
-  const payments = await Payment.find({ customerEmail: req.auth?.email.toLowerCase() }).sort({ paidAt: -1 }).lean();
+  const payments = await Payment.find({ customerEmail: req.auth?.email.toLowerCase(), kind: "booking" }).sort({ paidAt: -1 }).lean();
+  res.json({ payments });
+});
+var downloadInvoice = asyncHandler(async (req, res) => {
+  const payment = await Payment.findById(req.params.id);
+  if (!payment) throw new ApiError(404, "Payment not found");
+  const isOwner = payment.customerEmail === req.auth?.email.toLowerCase() || req.auth?.role === "admin";
+  if (!isOwner) throw new ApiError(403, "This invoice does not belong to you");
+  const pdf = buildInvoicePdf(payment);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="fixmate-invoice-${payment._id}.pdf"`);
+  res.send(pdf);
+});
+var mySubscriptionPayments = asyncHandler(async (req, res) => {
+  const payments = await Payment.find({ technicianEmail: req.auth?.email.toLowerCase(), kind: "pro_subscription" }).sort({ paidAt: -1 }).lean();
   res.json({ payments });
 });
 var allPayments = asyncHandler(async (_req, res) => {
@@ -167402,7 +167610,7 @@ var sessionSchema = coreSchema.extend({
 
 // ../node_modules/@better-auth/core/dist/db/schema/user.mjs
 init_zod();
-var userSchema = coreSchema.extend({
+var userSchema2 = coreSchema.extend({
   email: string2().transform((val) => val.toLowerCase()),
   emailVerified: boolean2().default(false),
   name: string2(),
@@ -167635,7 +167843,7 @@ init_json();
 init_zod();
 var cookieCachePayloadSchema = looseObject({
   session: sessionSchema.loose(),
-  user: userSchema.loose(),
+  user: userSchema2.loose(),
   updatedAt: number2(),
   version: string2().optional()
 });
@@ -184454,7 +184662,14 @@ var auth = betterAuth({
       },
       phone: { type: "string", required: false },
       area: { type: "string", required: false },
-      bio: { type: "string", required: false }
+      bio: { type: "string", required: false },
+      // input:false keeps plan changes behind the protected subscription flow.
+      plan: {
+        type: "string",
+        required: false,
+        defaultValue: "free",
+        input: false
+      }
     }
   }
 });
@@ -184469,25 +184684,6 @@ var import_jsonwebtoken = __toESM(require_jsonwebtoken(), 1);
 var TOKEN_COOKIE = "fixmate_token";
 var signToken = (payload) => import_jsonwebtoken.default.sign(payload, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
 var verifyTokenValue = (token) => import_jsonwebtoken.default.verify(token, env.jwtSecret);
-
-// src/models/User.ts
-var import_mongoose4 = __toESM(require_mongoose2(), 1);
-var { Schema: Schema3, model: model3 } = import_mongoose4.default;
-var models3 = import_mongoose4.default.models;
-var userSchema2 = new Schema3(
-  {
-    _id: { type: String, required: true },
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    image: { type: String, default: "" },
-    role: { type: String, enum: ROLES, default: "customer", index: true },
-    phone: { type: String, default: "" },
-    area: { type: String, default: "" },
-    bio: { type: String, default: "" }
-  },
-  { collection: "users", timestamps: true, versionKey: false }
-);
-var User = models3.User ?? model3("User", userSchema2);
 
 // src/lib/validation.ts
 init_zod();
@@ -184524,6 +184720,10 @@ var serviceSchema = external_exports.object({
 var finalAmountSchema = external_exports.object({
   finalAmount: external_exports.coerce.number().positive("Final amount must be greater than zero")
 });
+var ratingSchema = external_exports.object({
+  rating: external_exports.number().int().min(1, "Select at least one star").max(5, "Select at most five stars"),
+  review: external_exports.string().trim().min(3, "Write a short review").max(300, "Keep the review under 300 characters")
+});
 var profileSchema = external_exports.object({
   name: external_exports.string().trim().min(2).optional(),
   phone: external_exports.string().trim().optional(),
@@ -184549,6 +184749,7 @@ var publicUser = (user) => ({
   phone: user.phone ?? "",
   area: user.area ?? "",
   bio: user.bio ?? "",
+  plan: user.plan ?? "free",
   createdAt: user.createdAt
 });
 var issueToken = (res, user) => {
@@ -184705,7 +184906,10 @@ var serviceSchema2 = new Schema4(
       default: "pending",
       index: true
     },
-    isAvailable: { type: Boolean, default: true }
+    isAvailable: { type: Boolean, default: true },
+    technicianPlan: { type: String, enum: PLANS, default: "free", index: true },
+    averageRating: { type: Number, default: 0, min: 0, max: 5 },
+    reviewCount: { type: Number, default: 0, min: 0 }
   },
   { collection: "services", timestamps: true, versionKey: false }
 );
@@ -184762,12 +184966,21 @@ var createService = asyncHandler(async (req, res) => {
     throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid service details");
   }
   if (!req.auth) throw new ApiError(401, "Unauthorized");
+  const owner = await User.findOne({ email: req.auth.email.toLowerCase() }).lean();
+  const plan = owner?.plan ?? "free";
+  if (plan !== "pro") {
+    const listingCount = await Service.countDocuments({ technicianEmail: req.auth.email.toLowerCase() });
+    if (listingCount >= FREE_SERVICE_LIMIT) {
+      throw new ApiError(403, "Free technicians can list up to 3 services. Upgrade to Pro for unlimited listings.");
+    }
+  }
   const service = await Service.create({
     ...parsed.data,
     technicianName: req.auth.name,
     technicianEmail: req.auth.email.toLowerCase(),
     approvalStatus: "pending",
-    isAvailable: true
+    isAvailable: true,
+    technicianPlan: plan
   });
   res.status(201).json({ service });
 });
@@ -184776,9 +184989,10 @@ var updateService = asyncHandler(async (req, res) => {
   if (!parsed.success) {
     throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid service details");
   }
+  const owner = await User.findOne({ email: req.auth?.email.toLowerCase() }).lean();
   const service = await Service.findOneAndUpdate(
     { _id: req.params.id, technicianEmail: req.auth?.email.toLowerCase() },
-    { ...parsed.data, approvalStatus: "pending" },
+    { ...parsed.data, approvalStatus: "pending", technicianPlan: owner?.plan ?? "free" },
     { new: true, runValidators: true }
   );
   if (!service) throw new ApiError(404, "Service not found or not owned by you");
@@ -184902,6 +185116,38 @@ var updateBookingStatus = asyncHandler(async (req, res) => {
   await booking.save();
   res.json({ booking });
 });
+var rateBooking = asyncHandler(async (req, res) => {
+  const parsed = ratingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid rating");
+  }
+  const booking = await Booking.findOne({
+    _id: req.params.id,
+    customerEmail: req.auth?.email.toLowerCase()
+  });
+  if (!booking) throw new ApiError(404, "Booking not found");
+  if (booking.status !== "completed" || booking.paymentStatus !== "paid") {
+    throw new ApiError(400, "You can review a job only after it is completed and paid");
+  }
+  if (booking.rating) throw new ApiError(409, "You have already reviewed this job");
+  booking.rating = parsed.data.rating;
+  booking.review = parsed.data.review;
+  await booking.save();
+  const [summary] = await Booking.aggregate([
+    { $match: { serviceId: String(booking.serviceId), rating: { $type: "number" } } },
+    { $group: { _id: "$serviceId", average: { $avg: "$rating" }, count: { $sum: 1 } } }
+  ]);
+  await Service.updateOne(
+    { _id: booking.serviceId },
+    {
+      $set: {
+        averageRating: summary ? Math.round(summary.average * 10) / 10 : 0,
+        reviewCount: summary?.count ?? 0
+      }
+    }
+  );
+  res.json({ booking });
+});
 var allBookings = asyncHandler(async (req, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : "";
   const filter = status ? { status } : {};
@@ -184955,7 +185201,9 @@ var updateUserRole = asyncHandler(async (req, res) => {
   if (!role || !ROLES.includes(role)) {
     throw new ApiError(400, "Invalid role");
   }
-  const target = await findTargetUser(req.params.id);
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
+  const target = await findTargetUser(id);
   if (!target) throw new ApiError(404, "User not found");
   const nextRole = role;
   if (target.user.email === req.auth?.email.toLowerCase()) {
@@ -185097,11 +185345,15 @@ apiRouter.patch("/services/:id/availability", verifyToken, verifyTechnician, tog
 apiRouter.post("/bookings", verifyToken, verifyCustomer, createBooking);
 apiRouter.get("/bookings/my", verifyToken, verifyCustomer, myBookings);
 apiRouter.patch("/bookings/:id/cancel", verifyToken, verifyCustomer, cancelBooking);
+apiRouter.post("/bookings/:id/rating", verifyToken, verifyCustomer, rateBooking);
 apiRouter.get("/bookings/technician", verifyToken, verifyTechnician, technicianBookings);
 apiRouter.patch("/bookings/:id/status", verifyToken, verifyTechnician, updateBookingStatus);
 apiRouter.post("/payments/create-checkout-session", verifyToken, verifyCustomer, createCheckoutSession);
-apiRouter.get("/payments/verify", verifyToken, verifyCustomer, verifyPayment);
+apiRouter.post("/payments/pro-checkout", verifyToken, verifyTechnician, createProCheckoutSession);
+apiRouter.get("/payments/verify", verifyToken, verifyPayment);
 apiRouter.get("/payments/my", verifyToken, verifyCustomer, myPayments);
+apiRouter.get("/payments/subscription", verifyToken, verifyTechnician, mySubscriptionPayments);
+apiRouter.get("/payments/:id/invoice", verifyToken, downloadInvoice);
 apiRouter.patch("/users/profile", verifyToken, updateProfile);
 apiRouter.post("/uploads/image", verifyToken, uploadImage);
 apiRouter.get("/admin/users", verifyToken, verifyAdmin, listUsers);

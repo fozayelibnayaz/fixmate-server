@@ -44,6 +44,13 @@ export const auth = betterAuth({
       phone: { type: "string", required: false },
       area: { type: "string", required: false },
       bio: { type: "string", required: false },
+      // input:false keeps plan changes behind the protected subscription flow.
+      plan: {
+        type: "string",
+        required: false,
+        defaultValue: "free",
+        input: false,
+      },
     },
   },
 });

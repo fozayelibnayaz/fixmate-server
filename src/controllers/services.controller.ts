@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
-import { CATEGORIES, SERVICE_MODES } from "../config/constants";
+import { CATEGORIES, FREE_SERVICE_LIMIT, SERVICE_MODES } from "../config/constants";
 import { ApiError, asyncHandler } from "../lib/http";
 import { serviceSchema } from "../lib/validation";
 import { Service } from "../models/Service";
+import { User } from "../models/User";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -70,12 +71,22 @@ export const createService = asyncHandler(async (req: Request, res: Response) =>
   }
   if (!req.auth) throw new ApiError(401, "Unauthorized");
 
+  const owner = await User.findOne({ email: req.auth.email.toLowerCase() }).lean();
+  const plan = owner?.plan ?? "free";
+  if (plan !== "pro") {
+    const listingCount = await Service.countDocuments({ technicianEmail: req.auth.email.toLowerCase() });
+    if (listingCount >= FREE_SERVICE_LIMIT) {
+      throw new ApiError(403, "Free technicians can list up to 3 services. Upgrade to Pro for unlimited listings.");
+    }
+  }
+
   const service = await Service.create({
     ...parsed.data,
     technicianName: req.auth.name,
     technicianEmail: req.auth.email.toLowerCase(),
     approvalStatus: "pending",
     isAvailable: true,
+    technicianPlan: plan,
   });
   res.status(201).json({ service });
 });
@@ -85,9 +96,10 @@ export const updateService = asyncHandler(async (req: Request, res: Response) =>
   if (!parsed.success) {
     throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid service details");
   }
+  const owner = await User.findOne({ email: req.auth?.email.toLowerCase() }).lean();
   const service = await Service.findOneAndUpdate(
     { _id: req.params.id, technicianEmail: req.auth?.email.toLowerCase() },
-    { ...parsed.data, approvalStatus: "pending" },
+    { ...parsed.data, approvalStatus: "pending", technicianPlan: owner?.plan ?? "free" },
     { new: true, runValidators: true },
   );
   if (!service) throw new ApiError(404, "Service not found or not owned by you");

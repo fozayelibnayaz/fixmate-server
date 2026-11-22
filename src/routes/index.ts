@@ -42,6 +42,7 @@ apiRouter.patch("/services/:id/availability", verifyToken, verifyTechnician, ser
 apiRouter.post("/bookings", verifyToken, verifyCustomer, bookings.createBooking);
 apiRouter.get("/bookings/my", verifyToken, verifyCustomer, bookings.myBookings);
 apiRouter.patch("/bookings/:id/cancel", verifyToken, verifyCustomer, bookings.cancelBooking);
+apiRouter.post("/bookings/:id/rating", verifyToken, verifyCustomer, bookings.rateBooking);
 
 // Technician job management.
 apiRouter.get("/bookings/technician", verifyToken, verifyTechnician, bookings.technicianBookings);
@@ -50,8 +51,11 @@ apiRouter.patch("/bookings/:id/status", verifyToken, verifyTechnician, bookings.
 // Payments. The webhook is mounted in app.ts before the JSON parser so Stripe
 // signatures are verified against the untouched raw body.
 apiRouter.post("/payments/create-checkout-session", verifyToken, verifyCustomer, payments.createCheckoutSession);
-apiRouter.get("/payments/verify", verifyToken, verifyCustomer, payments.verifyPayment);
+apiRouter.post("/payments/pro-checkout", verifyToken, verifyTechnician, payments.createProCheckoutSession);
+apiRouter.get("/payments/verify", verifyToken, payments.verifyPayment);
 apiRouter.get("/payments/my", verifyToken, verifyCustomer, payments.myPayments);
+apiRouter.get("/payments/subscription", verifyToken, verifyTechnician, payments.mySubscriptionPayments);
+apiRouter.get("/payments/:id/invoice", verifyToken, payments.downloadInvoice);
 
 // Profile + uploads (any authenticated role).
 apiRouter.patch("/users/profile", verifyToken, users.updateProfile);

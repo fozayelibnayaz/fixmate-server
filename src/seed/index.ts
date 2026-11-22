@@ -15,6 +15,7 @@ const technicianSeeds = [
     phone: "+8801711000001",
     area: "Dhanmondi, Dhaka",
     bio: "12 years repairing smartphones and laptops. Apple-certified technician.",
+    plan: "pro" as const,
   },
   {
     name: "Karim Ahmed",
@@ -24,6 +25,7 @@ const technicianSeeds = [
     phone: "+8801711000002",
     area: "Mirpur, Dhaka",
     bio: "AC, refrigerator and washing machine specialist. Same-day home visits.",
+    plan: "free" as const,
   },
 ];
 
@@ -228,6 +230,11 @@ const run = async () => {
   const technicians = [];
   for (const technician of technicianSeeds) {
     await ensureUser(technician);
+    // Set the demo plan once without resetting a technician who later bought Pro.
+    const missingPlan = await User.collection.findOne({ email: technician.email, plan: { $exists: false } });
+    if (missingPlan) {
+      await User.updateOne({ email: technician.email }, { $set: { plan: technician.plan } });
+    }
     const technicianUser = await User.findOne({ email: technician.email });
     if (!technicianUser) throw new Error(`Could not update ${technician.email}`);
     technicians.push(technicianUser);
@@ -252,6 +259,7 @@ const run = async () => {
           technicianEmail: technician.email,
           approvalStatus: "approved",
           isAvailable: true,
+          technicianPlan: technician.plan,
         },
       },
       { upsert: true },
@@ -302,9 +310,75 @@ const run = async () => {
           paidAt: new Date(),
         });
         booking.paymentStatus = "paid";
+        if (!booking.rating) {
+          booking.rating = 5;
+          booking.review = "Great communication and the repair was done exactly as promised.";
+        }
+        if (!booking.statusHistory.some((item) => item.status === "paid")) {
+          booking.statusHistory.push({ status: "paid", changedAt: new Date() });
+        }
         await booking.save();
       }
     }
+  }
+
+  // Existing demo databases were seeded before ratings existed. Make the sample
+  // paid job reviewable without resetting bookings an admin may have changed.
+  const completedDemoService = seededServices.find((service) => service.title === serviceSeeds[3].title);
+  if (completedDemoService) {
+    const demoBooking = await Booking.findOne({
+      serviceId: completedDemoService._id,
+      customerEmail: customer.email,
+      status: "completed",
+    });
+    if (demoBooking) {
+      if (!demoBooking.rating) {
+        demoBooking.rating = 5;
+        demoBooking.review = "Great communication and the repair was done exactly as promised.";
+      }
+      demoBooking.paymentStatus = "paid";
+      if (!demoBooking.statusHistory.some((item) => item.status === "paid")) {
+        demoBooking.statusHistory.push({ status: "paid", changedAt: new Date() });
+      }
+      await demoBooking.save();
+
+      const existingPayment = await Payment.findOne({ bookingId: String(demoBooking._id), kind: "booking" });
+      if (!existingPayment) {
+        await Payment.create({
+          bookingId: String(demoBooking._id),
+          serviceTitle: demoBooking.serviceTitle,
+          customerName: demoBooking.customerName,
+          customerEmail: demoBooking.customerEmail,
+          technicianName: demoBooking.technicianName,
+          technicianEmail: demoBooking.technicianEmail,
+          amount: demoBooking.finalAmount,
+          currency: "bdt",
+          transactionId: `seed_pi_${demoBooking._id}`,
+          stripeSessionId: `seed_cs_${demoBooking._id}`,
+          kind: "booking",
+          paymentStatus: "paid",
+          paidAt: new Date(),
+        });
+      }
+    }
+  }
+
+  // Keep service rating summaries accurate for cards and detail pages.
+  const ratingSummaries = await Booking.aggregate<{ _id: string; average: number; count: number }>([
+    { $match: { rating: { $type: "number" } } },
+    { $group: { _id: "$serviceId", average: { $avg: "$rating" }, count: { $sum: 1 } } },
+  ]);
+  for (const service of seededServices) {
+    const summary = ratingSummaries.find((item) => String(item._id) === String(service._id));
+    await Service.updateOne(
+      { _id: service._id },
+      {
+        $set: {
+          averageRating: summary ? Math.round(summary.average * 10) / 10 : 0,
+          reviewCount: summary?.count ?? 0,
+        },
+      },
+    );
   }
 
   // Keep existing seed records in sync when prices or images are updated.

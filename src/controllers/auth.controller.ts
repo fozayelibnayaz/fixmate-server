@@ -30,6 +30,7 @@ export const publicUser = (user: IUser) => ({
   phone: user.phone ?? "",
   area: user.area ?? "",
   bio: user.bio ?? "",
+  plan: user.plan ?? "free",
   createdAt: user.createdAt,
 });
 

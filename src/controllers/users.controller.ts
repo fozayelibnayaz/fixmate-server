@@ -61,7 +61,11 @@ export const updateUserRole = asyncHandler(async (req: Request, res: Response) =
   if (!role || !ROLES.includes(role as (typeof ROLES)[number])) {
     throw new ApiError(400, "Invalid role");
   }
-  const target = await findTargetUser(req.params.id);
+  // Express 5 typings allow array params on wildcard routes; normalize to a
+  // single id before the ObjectId fallbacks below.
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? (rawId[0] ?? "") : rawId;
+  const target = await findTargetUser(id);
   if (!target) throw new ApiError(404, "User not found");
   const nextRole = role as Role;
   if (target.user.email === req.auth?.email.toLowerCase()) {

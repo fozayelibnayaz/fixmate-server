@@ -43,6 +43,11 @@ export const finalAmountSchema = z.object({
   finalAmount: z.coerce.number().positive("Final amount must be greater than zero"),
 });
 
+export const ratingSchema = z.object({
+  rating: z.number().int().min(1, "Select at least one star").max(5, "Select at most five stars"),
+  review: z.string().trim().min(3, "Write a short review").max(300, "Keep the review under 300 characters"),
+});
+
 export const profileSchema = z.object({
   name: z.string().trim().min(2).optional(),
   phone: z.string().trim().optional(),

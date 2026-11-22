@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { ACTIVE_BOOKING_STATUSES, type BookingStatus } from "../config/constants";
 import { ApiError, asyncHandler } from "../lib/http";
 import { canTransition } from "../lib/status";
-import { bookingRequestSchema, finalAmountSchema } from "../lib/validation";
+import { bookingRequestSchema, finalAmountSchema, ratingSchema } from "../lib/validation";
 import { Booking, type IBooking } from "../models/Booking";
 import { Service } from "../models/Service";
 
@@ -112,6 +112,43 @@ export const updateBookingStatus = asyncHandler(async (req: Request, res: Respon
   booking.finalAmount = finalAmount;
   booking.statusHistory.push({ status: nextStatus, changedAt: new Date() });
   await booking.save();
+  res.json({ booking });
+});
+
+/** Optional differentiator: a customer can review a completed, paid job once. */
+export const rateBooking = asyncHandler(async (req: Request, res: Response) => {
+  const parsed = ratingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid rating");
+  }
+  const booking = await Booking.findOne({
+    _id: req.params.id,
+    customerEmail: req.auth?.email.toLowerCase(),
+  });
+  if (!booking) throw new ApiError(404, "Booking not found");
+  if (booking.status !== "completed" || booking.paymentStatus !== "paid") {
+    throw new ApiError(400, "You can review a job only after it is completed and paid");
+  }
+  if (booking.rating) throw new ApiError(409, "You have already reviewed this job");
+
+  booking.rating = parsed.data.rating;
+  booking.review = parsed.data.review;
+  await booking.save();
+
+  const [summary] = await Booking.aggregate<{ _id: string; average: number; count: number }>([
+    { $match: { serviceId: String(booking.serviceId), rating: { $type: "number" } } },
+    { $group: { _id: "$serviceId", average: { $avg: "$rating" }, count: { $sum: 1 } } },
+  ]);
+  await Service.updateOne(
+    { _id: booking.serviceId },
+    {
+      $set: {
+        averageRating: summary ? Math.round(summary.average * 10) / 10 : 0,
+        reviewCount: summary?.count ?? 0,
+      },
+    },
+  );
+
   res.json({ booking });
 });
 

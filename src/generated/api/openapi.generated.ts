@@ -847,6 +847,59 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/bookings/{id}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review a completed, paid job once (customer only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description MongoDB ObjectId string. */
+                    id: components["parameters"]["IdParam"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RatingInput"];
+                };
+            };
+            responses: {
+                /** @description Review saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BookingResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                /** @description Job already reviewed */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/payments/create-checkout-session": {
         parameters: {
             query?: never;
@@ -961,7 +1014,7 @@ export interface paths {
         put?: never;
         /**
          * Stripe webhook receiver
-         * @description Verifies the Stripe signature over the raw body and upserts payments keyed by the unique Stripe session id.
+         * @description Verifies the Stripe signature over the raw body, checks the paid amount against the server's final amount, and upserts one payment per booking.
          */
         post: {
             parameters: {
@@ -1035,6 +1088,141 @@ export interface paths {
                         };
                     };
                 };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/pro-checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a Stripe Checkout session for the Pro technician plan
+         * @description Only technicians on the free plan can purchase Pro.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Checkout session created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uri */
+                            url?: string;
+                            sessionId?: string;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Technician is already on Pro */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the authenticated technician's Pro subscription payments */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Subscription payment history */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            payments?: components["schemas"]["Payment"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/{id}/invoice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a payment invoice as PDF */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description MongoDB ObjectId string. */
+                    id: components["parameters"]["IdParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description PDF invoice */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
@@ -1444,6 +1632,10 @@ export interface components {
         BookingStatus: "requested" | "accepted" | "rejected" | "in-progress" | "completed" | "cancelled";
         /** @enum {string} */
         PaymentStatus: "unpaid" | "paid";
+        /** @enum {string} */
+        Plan: "free" | "pro";
+        /** @enum {string} */
+        PaymentKind: "booking" | "pro_subscription";
         ErrorResponse: {
             message?: string;
             status?: number;
@@ -1461,6 +1653,7 @@ export interface components {
             phone?: string;
             area?: string;
             bio?: string;
+            plan?: components["schemas"]["Plan"];
             /** Format: date-time */
             createdAt?: string;
         };
@@ -1501,6 +1694,9 @@ export interface components {
             technicianEmail?: string;
             approvalStatus?: components["schemas"]["ApprovalStatus"];
             isAvailable?: boolean;
+            technicianPlan?: components["schemas"]["Plan"];
+            averageRating?: number;
+            reviewCount?: number;
             /** Format: date-time */
             createdAt?: string;
         };
@@ -1532,6 +1728,10 @@ export interface components {
             preferredDate: string;
             problemDescription: string;
         };
+        RatingInput: {
+            rating: number;
+            review: string;
+        };
         StatusUpdateInput: {
             status: components["schemas"]["BookingStatus"];
             /** @description Required when status is `completed`. */
@@ -1560,6 +1760,8 @@ export interface components {
                 /** Format: date-time */
                 changedAt?: string;
             }[];
+            rating?: number;
+            review?: string;
             /** Format: date-time */
             createdAt?: string;
         };
@@ -1578,6 +1780,8 @@ export interface components {
             currency?: string;
             transactionId?: string;
             stripeSessionId?: string;
+            kind?: components["schemas"]["PaymentKind"];
+            plan?: components["schemas"]["Plan"];
             /** @constant */
             paymentStatus?: "paid";
             /** Format: date-time */

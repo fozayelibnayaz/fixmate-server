@@ -5,9 +5,11 @@ const models = mongoose.models;
 import {
   APPROVAL_STATUSES,
   CATEGORIES,
+  PLANS,
   SERVICE_MODES,
   type ApprovalStatus,
   type Category,
+  type Plan,
   type ServiceMode,
 } from "../config/constants";
 
@@ -25,6 +27,9 @@ export interface IService {
   technicianEmail: string;
   approvalStatus: ApprovalStatus;
   isAvailable: boolean;
+  technicianPlan: Plan;
+  averageRating: number;
+  reviewCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +53,9 @@ const serviceSchema = new Schema<IService>(
       index: true,
     },
     isAvailable: { type: Boolean, default: true },
+    technicianPlan: { type: String, enum: PLANS, default: "free", index: true },
+    averageRating: { type: Number, default: 0, min: 0, max: 5 },
+    reviewCount: { type: Number, default: 0, min: 0 },
   },
   { collection: "services", timestamps: true, versionKey: false },
 );

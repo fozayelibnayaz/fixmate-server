@@ -2,7 +2,7 @@ import mongoose, { type Model } from "mongoose";
 
 const { Schema, model } = mongoose;
 const models = mongoose.models;
-import { ROLES, type Role } from "../config/constants";
+import { PLANS, ROLES, type Plan, type Role } from "../config/constants";
 
 export interface IUser {
   _id: string;
@@ -13,6 +13,7 @@ export interface IUser {
   phone?: string;
   area?: string;
   bio?: string;
+  plan: Plan;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +28,7 @@ const userSchema = new Schema<IUser>(
     phone: { type: String, default: "" },
     area: { type: String, default: "" },
     bio: { type: String, default: "" },
+    plan: { type: String, enum: PLANS, default: "free", index: true },
   },
   { collection: "users", timestamps: true, versionKey: false },
 );

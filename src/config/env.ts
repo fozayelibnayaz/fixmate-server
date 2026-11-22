@@ -44,6 +44,7 @@ export const env = {
     process.env.STRIPE_CANCEL_URL,
     "http://localhost:3000/payment/cancel",
   )!,
+  proMonthlyPriceBdt: Number(first(process.env.PRO_MONTHLY_PRICE_BDT, "499")),
   adminEmail: first(process.env.ADMIN_EMAIL, "admin@fixmate.test")!,
   adminPassword: first(process.env.ADMIN_PASSWORD, "ChangeMe123!")!,
 };

@@ -2,18 +2,19 @@
 
 FixMate is a role-based, on-demand device and home-appliance repair booking platform. Customers browse repair services, request a job, follow its progress and pay after completion. Technicians publish and manage services and jobs. Admins moderate services and oversee users, bookings and payments.
 
-> **Assignment / demo project.** FixMate is an original dark-only repair-booking product built from the 2026 TypeScript/React boilerplate. All public copy, data and interactions describe FixMate services, technicians, customers, bookings and payments. The seeded accounts, Stripe test keys and ImgBB configuration are for local development and demos only. Harden secrets, rate limits and credentials before any real deployment.
+> **Assignment / demo project.** FixMate is an original repair-booking product built from the 2026 TypeScript/React boilerplate. The public site is dark by default with a light-theme toggle. All public copy, data and interactions describe FixMate services, technicians, customers, bookings and payments. The seeded accounts, Stripe test keys and ImgBB configuration are for local development and demos only. Harden secrets, rate limits and credentials before any real deployment.
 
 **Live URL:** <https://fixmate-client-lemon.vercel.app><br />
 **API URL:** <https://fixmate-server-flame.vercel.app>
 
 ## Features
 
-- **Public site** — a dark-only FixMate landing page with a repair tracker preview, popular repair links, a four-step booking guide, trust and service-area details, a repair journey view, common questions, community stories, category cards and a final search, plus the service catalogue with server-side search/filter/sort/pagination, service detail pages with a booking request form, sign-in/sign-up, and payment success/cancel pages.
+- **Public site** — a dark-by-default, themeable FixMate landing page with a repair tracker preview, popular repair links, a four-step booking guide, trust and service-area details, a repair journey view, common questions, community stories, category cards and a final search, plus the service catalogue with server-side search/filter/sort/pagination, service detail pages with a booking request form, sign-in/sign-up, and payment success/cancel pages. A visible toggle switches the public site to a light palette.
 - **Three role dashboards** — customer (bookings, payments), technician (services, incoming requests, completion and final price), admin (users, roles, service approval, all bookings, transactions and stats).
 - **Enforced workflow** — booking status pipeline and payment gate are validated on the server; clients cannot skip steps or act on another user's records.
-- **Payments** — all prices and charges are in BDT (৳) with the Stripe amount converted to the smallest unit; Checkout sessions include a signed webhook with idempotent recording and an explicit "pay only after completed" rule.
-- **Auth & roles** — BetterAuth credentials with MongoDB persistence, a signed JWT cookie, and `customer` / `technician` / `admin` middleware guards.
+- **Payments** — all prices and charges are in BDT (৳) with the Stripe amount converted to the smallest unit; Checkout sessions include a signed webhook with amount validation, booking-level idempotency, paid timeline history and an explicit "pay only after completed" rule. Paid bookings and Pro subscriptions have downloadable PDF invoices.
+- **Optional differentiators** — Pro Technician Plan (3 free services, unlimited Pro services and a verified badge), customer ratings/reviews with cached service averages, a job timeline tracker, server-side pagination, and a public light/dark theme toggle.
+- **Auth & roles** — BetterAuth credentials with MongoDB persistence, a signed JWT cookie, and `customer` / `technician` / `admin` middleware guards. Destructive admin and technician actions require explicit confirmation.
 - **Moderation** — technician-created services start `pending`; only approved, available services are publicly visible.
 - **Image uploads** — browser sends a data URL to the API; the ImgBB key never leaves the server.
 - **DX & testing** — npm workspaces, TypeScript, ESLint, Vitest unit tests, Playwright E2E, GitHub Actions CI, and OpenAPI-driven type generation.
@@ -34,7 +35,7 @@ Two independent npm workspaces run side by side:
 fixmate/
 ├── client/                 Next.js 16 App Router app (http://localhost:3000)
 │   ├── src/app/(public)/   Landing, services, auth, payment result pages
-│   ├── src/app/public.css  Scoped dark-only FixMate public styles
+│   ├── src/app/public.css  Scoped dark-by-default FixMate public styles with light overrides
 │   ├── src/app/dashboard/  Customer / technician / admin dashboards
 │   ├── src/components/     UI, layout, auth, dashboard and service components
 │   ├── src/hooks/          Session guard + data hooks
@@ -102,7 +103,7 @@ Root scripts (see [docs/SCRIPTS.md](docs/SCRIPTS.md) for workspace-level details
 
 ## Demo accounts
 
-Created by `npm run seed -w server`:
+Created by `npm run seed -w server`: two technicians (Rahim on Pro, Karim on Free), 12 approved services across the seven categories, and bookings in requested/accepted/in-progress/completed/cancelled states. One completed booking is paid and reviewable, with a matching transaction in the admin ledger.
 
 | Role | Email | Password |
 |---|---|---|
@@ -117,8 +118,8 @@ Karim Ahmed's account is ready for the technician request flow. Change these cre
 
 | Role | Can do |
 |---|---|
-| Customer | Browse/search services, request a repair (one active request per service), cancel a `requested` job, view progress, create Stripe Checkout only after completion, view payment history, edit own profile |
-| Technician | Add/edit/delete own services, toggle availability, see request status in `pending` → `approved` moderation, accept/reject requests, move jobs through `in-progress` → `completed`, set the final amount, view assigned jobs |
+| Customer | Browse/search services, request a repair (one active request per service), cancel a `requested` job, view the timeline/progress, rate a completed paid job once, create Stripe Checkout only after completion, view payment history and download PDF invoices, edit own profile |
+| Technician | Add/edit/delete own services (3 free, unlimited on Pro), toggle availability, see request status in `pending` → `approved` moderation, accept/reject requests, move jobs through `in-progress` → `completed`, set the final amount, view assigned jobs and status history, upgrade to Pro and download subscription invoices |
 | Admin | View all users and change roles (not their own), approve/reject/pend services, view all bookings and transactions/revenue, see platform stats |
 
 ## API
@@ -147,7 +148,7 @@ Server — `server/.env` (see `server/.env.example`):
 | `GOOGLE_CLIENT_SECRET` | Optional Google OAuth client secret | placeholder (feature hidden) |
 | `JWT_SECRET` | Secret for the role-middleware JWT | set a different long random string |
 | `JWT_EXPIRES_IN` | JWT lifetime | `7d` |
-| `IMGBB_API_KEY` | Server-side ImgBB upload key | set for service and profile photo uploads |
+| `IMGBB_API_KEY` | Server-side ImgBB upload key | set for service/profile photo uploads |
 | `STRIPE_SECRET_KEY` | Stripe test secret key | empty |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (CLI `whsec_…` locally, Dashboard secret in production) | empty |
 | `STRIPE_SUCCESS_URL` | Checkout success redirect | `http://localhost:3000/payment/success` |
@@ -167,7 +168,7 @@ Client — `client/.env.local` (see `client/.env.local.example`):
 This submission is deployed to Vercel in two projects: `fixmate-server` (Express API) and `fixmate-client` (Next.js client). Deploy the API first, then the client; both use Node.js 24.x.
 
 - **Client:** deployed from `client/` at <https://fixmate-client-lemon.vercel.app>. Set `NEXT_PUBLIC_API_URL=https://fixmate-server-flame.vercel.app` and `NEXT_PUBLIC_SITE_URL=https://fixmate-client-lemon.vercel.app`.
-- **Server:** deployed from `server/` at <https://fixmate-server-flame.vercel.app>. The Express source is native ESM. The generated ESM bundle `api/index.mjs` is committed here so GitHub-triggered Vercel builds have a deployable function; regenerate it with `npm run build:vercel` whenever server source changes. `server/vercel.json` routes every request to that bundle, and `server/.env` values are configured as Vercel project environment variables with `NODE_ENV=production`.
+- **Server:** deployed from `server/` at <https://fixmate-server-flame.vercel.app>. `server/vercel.json` builds a bundled ESM entry (`api/index.mjs`) with `npm run build:vercel` and routes every request to it; `server/.env` values are configured as Vercel project environment variables with `NODE_ENV=production`.
 - **Database:** MongoDB Atlas. `MONGODB_URI` is set on the API project; `CORS_ALLOWED_ORIGINS` contains the production client origin.
 - **CORS/auth origins:** `CLIENT_URL`, `CORS_ALLOWED_ORIGINS` and `BETTER_AUTH_URL` use the deployed origins. The cross-site `fixmate_token` cookie is `httpOnly`, `secure` and `sameSite=none` in production. Roles are read from MongoDB on every request, so role changes take effect immediately; a raw ObjectId lookup fallback supports BetterAuth-created user ids.
 - **Stripe:** the webhook endpoint is <https://fixmate-server-flame.vercel.app/api/payments/webhook> and listens for `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Its signing secret is stored as `STRIPE_WEBHOOK_SECRET` on the API project. Success/cancel redirects point to `https://fixmate-client-lemon.vercel.app/payment/success` and `/payment/cancel`. Locally: `stripe listen --forward-to localhost:4000/api/payments/webhook`.
@@ -183,7 +184,6 @@ This submission is deployed to Vercel in two projects: `fixmate-server` (Express
 - [x] Domains: `CLIENT_URL`, `CORS_ALLOWED_ORIGINS`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, plus BetterAuth trusted origins on the deployed API host
 - [x] Admin seed: `ADMIN_EMAIL`, `ADMIN_PASSWORD` (change before seeding a shared environment)
 - [x] Stripe Dashboard: webhook subscribed to `checkout.session.completed` and `checkout.session.async_payment_succeeded` at `https://fixmate-server-flame.vercel.app/api/payments/webhook`
-
 - [ ] Optional Google login: paste real `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` values and register the callback URI above; placeholders are installed by default
 
 ## Documentation

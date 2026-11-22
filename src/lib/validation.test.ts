@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingRequestSchema, finalAmountSchema, serviceSchema, signUpSchema } from "./validation";
+import { bookingRequestSchema, finalAmountSchema, ratingSchema, serviceSchema, signUpSchema } from "./validation";
 
 const futureDate = new Date(Date.now() + 7 * 86_400_000).toISOString();
 
@@ -67,5 +67,17 @@ describe("serviceSchema and finalAmountSchema", () => {
   it("requires a positive final amount", () => {
     expect(finalAmountSchema.safeParse({ finalAmount: 0 }).success).toBe(false);
     expect(finalAmountSchema.safeParse({ finalAmount: "42.50" }).success).toBe(true);
+  });
+});
+
+describe("ratingSchema", () => {
+  it("accepts a one-to-five star review", () => {
+    expect(ratingSchema.safeParse({ rating: 5, review: "Excellent repair" }).success).toBe(true);
+  });
+
+  it("rejects out-of-range scores and empty reviews", () => {
+    expect(ratingSchema.safeParse({ rating: 0, review: "Excellent repair" }).success).toBe(false);
+    expect(ratingSchema.safeParse({ rating: 6, review: "Excellent repair" }).success).toBe(false);
+    expect(ratingSchema.safeParse({ rating: 4, review: "" }).success).toBe(false);
   });
 });

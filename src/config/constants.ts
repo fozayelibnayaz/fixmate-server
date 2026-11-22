@@ -3,6 +3,10 @@ export type Role = (typeof ROLES)[number];
 
 export const PUBLIC_ROLES = ["customer", "technician"] as const;
 
+export const PLANS = ["free", "pro"] as const;
+export type Plan = (typeof PLANS)[number];
+export const FREE_SERVICE_LIMIT = 3;
+
 export const CATEGORIES = [
   "Smartphone",
   "Laptop & PC",
@@ -32,6 +36,9 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const PAYMENT_STATUSES = ["unpaid", "paid"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const PAYMENT_KINDS = ["booking", "pro_subscription"] as const;
+export type PaymentKind = (typeof PAYMENT_KINDS)[number];
 
 /** The only server-accepted status transitions. Anything else is rejected. */
 export const ALLOWED_TRANSITIONS: Record<string, readonly BookingStatus[]> = {
