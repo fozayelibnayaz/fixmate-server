@@ -29,6 +29,7 @@ apiRouter.get("/session/oauth/google/callback", auth.googleCallback);
 // Public service catalogue.
 apiRouter.get("/services/featured", services.featuredServices);
 apiRouter.get("/services", services.listServices);
+apiRouter.get("/services/:id/reviews", services.serviceReviews);
 apiRouter.get("/services/:id", services.getService);
 
 // Technician-owned service CRUD.

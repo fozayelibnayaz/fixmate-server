@@ -571,6 +571,52 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/services/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description MongoDB ObjectId string. */
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List public reviews for an approved service
+         * @description Only ratings from completed, paid jobs are returned; customer email and phone are never exposed.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description MongoDB ObjectId string. */
+                    id: components["parameters"]["IdParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Service reviews */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ServiceReviewsResponse"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/services/{id}/availability": {
         parameters: {
             query?: never;
@@ -1719,6 +1765,16 @@ export interface components {
             page?: number;
             limit?: number;
             totalPages?: number;
+        };
+        ServiceReview: {
+            customerName?: string;
+            rating?: number;
+            review?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ServiceReviewsResponse: {
+            reviews?: components["schemas"]["ServiceReview"][];
         };
         BookingRequestInput: {
             serviceId: string;

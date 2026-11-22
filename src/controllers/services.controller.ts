@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { CATEGORIES, FREE_SERVICE_LIMIT, SERVICE_MODES } from "../config/constants";
 import { ApiError, asyncHandler } from "../lib/http";
 import { serviceSchema } from "../lib/validation";
+import { Booking } from "../models/Booking";
 import { Service } from "../models/Service";
 import { User } from "../models/User";
 
@@ -62,6 +63,36 @@ export const getService = asyncHandler(async (req: Request, res: Response) => {
   }).lean();
   if (!service) throw new ApiError(404, "Service not found");
   res.json({ service });
+});
+
+/** Public, privacy-safe review feed for a service detail page. */
+export const serviceReviews = asyncHandler(async (req: Request, res: Response) => {
+  const service = await Service.findOne({
+    _id: req.params.id,
+    approvalStatus: "approved",
+    isAvailable: true,
+  }).select("_id").lean();
+  if (!service) throw new ApiError(404, "Service not found");
+
+  const bookings = await Booking.find({
+    serviceId: String(service._id),
+    rating: { $gte: 1, $lte: 5 },
+    status: "completed",
+    paymentStatus: "paid",
+  })
+    .sort({ updatedAt: -1 })
+    .select("customerName rating review updatedAt")
+    .lean();
+
+  const reviews = bookings
+    .filter((booking) => typeof booking.rating === "number")
+    .map((booking) => ({
+      customerName: booking.customerName,
+      rating: booking.rating,
+      review: booking.review ?? "",
+      createdAt: booking.updatedAt,
+    }));
+  res.json({ reviews });
 });
 
 export const createService = asyncHandler(async (req: Request, res: Response) => {

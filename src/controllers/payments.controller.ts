@@ -148,6 +148,7 @@ export const createCheckoutSession = asyncHandler(async (req: Request, res: Resp
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    // Stripe's hosted Checkout uses its light theme by default.
     line_items: [
       {
         quantity: 1,
@@ -176,6 +177,7 @@ export const createProCheckoutSession = asyncHandler(async (req: Request, res: R
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    // Stripe's hosted Checkout uses its light theme by default.
     line_items: [
       {
         quantity: 1,

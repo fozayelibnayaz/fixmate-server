@@ -164929,6 +164929,7 @@ var createCheckoutSession = asyncHandler(async (req, res) => {
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    // Stripe's hosted Checkout uses its light theme by default.
     line_items: [
       {
         quantity: 1,
@@ -164953,6 +164954,7 @@ var createProCheckoutSession = asyncHandler(async (req, res) => {
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
+    // Stripe's hosted Checkout uses its light theme by default.
     line_items: [
       {
         quantity: 1,
@@ -184960,6 +184962,27 @@ var getService = asyncHandler(async (req, res) => {
   if (!service) throw new ApiError(404, "Service not found");
   res.json({ service });
 });
+var serviceReviews = asyncHandler(async (req, res) => {
+  const service = await Service.findOne({
+    _id: req.params.id,
+    approvalStatus: "approved",
+    isAvailable: true
+  }).select("_id").lean();
+  if (!service) throw new ApiError(404, "Service not found");
+  const bookings = await Booking.find({
+    serviceId: String(service._id),
+    rating: { $gte: 1, $lte: 5 },
+    status: "completed",
+    paymentStatus: "paid"
+  }).sort({ updatedAt: -1 }).select("customerName rating review updatedAt").lean();
+  const reviews = bookings.filter((booking) => typeof booking.rating === "number").map((booking) => ({
+    customerName: booking.customerName,
+    rating: booking.rating,
+    review: booking.review ?? "",
+    createdAt: booking.updatedAt
+  }));
+  res.json({ reviews });
+});
 var createService = asyncHandler(async (req, res) => {
   const parsed = serviceSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -185336,6 +185359,7 @@ apiRouter.get("/session/oauth/google", startGoogleSignIn);
 apiRouter.get("/session/oauth/google/callback", googleCallback);
 apiRouter.get("/services/featured", featuredServices);
 apiRouter.get("/services", listServices);
+apiRouter.get("/services/:id/reviews", serviceReviews);
 apiRouter.get("/services/:id", getService);
 apiRouter.get("/services/mine/list", verifyToken, verifyTechnician, myServices);
 apiRouter.post("/services", verifyToken, verifyTechnician, createService);
