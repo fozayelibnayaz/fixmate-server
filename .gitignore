@@ -3,7 +3,7 @@ node_modules/
 
 # Build output
 dist/
-api/
+# The bundled Vercel API entry is committed so Git-triggered builds can deploy it.
 
 # Environment files
 .env
