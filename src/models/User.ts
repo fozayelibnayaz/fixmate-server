@@ -1,4 +1,7 @@
-import { Schema, model, models, type Model } from "mongoose";
+import mongoose, { type Model } from "mongoose";
+
+const { Schema, model } = mongoose;
+const models = mongoose.models;
 import { ROLES, type Role } from "../config/constants";
 
 export interface IUser {
@@ -28,4 +31,5 @@ const userSchema = new Schema<IUser>(
   { collection: "users", timestamps: true, versionKey: false },
 );
 
-export const User: Model<IUser> = (models.User as Model<IUser>) ?? model<IUser>("User", userSchema);
+export const User: Model<IUser> =
+  (models.User as Model<IUser>) ?? model<IUser>("User", userSchema);

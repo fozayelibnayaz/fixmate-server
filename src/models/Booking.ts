@@ -1,4 +1,7 @@
-import { Schema, model, models, type Model } from "mongoose";
+import mongoose, { type Model } from "mongoose";
+
+const { Schema, model } = mongoose;
+const models = mongoose.models;
 import {
   BOOKING_STATUSES,
   PAYMENT_STATUSES,

@@ -143,9 +143,11 @@ Server — `server/.env` (see `server/.env.example`):
 | `MONGODB_URI` | MongoDB connection string (Atlas `mongodb+srv://…/fixmate` in production) | `mongodb://127.0.0.1:27017/fixmate` |
 | `BETTER_AUTH_URL` | Public API URL used by BetterAuth | `http://localhost:4000` |
 | `BETTER_AUTH_SECRET` | BetterAuth signing secret | set a long random string |
+| `GOOGLE_CLIENT_ID` | Optional Google OAuth client id | placeholder (feature hidden) |
+| `GOOGLE_CLIENT_SECRET` | Optional Google OAuth client secret | placeholder (feature hidden) |
 | `JWT_SECRET` | Secret for the role-middleware JWT | set a different long random string |
 | `JWT_EXPIRES_IN` | JWT lifetime | `7d` |
-| `IMGBB_API_KEY` | Server-side ImgBB upload key | empty (uploads disabled) |
+| `IMGBB_API_KEY` | Server-side ImgBB upload key | set for service and profile photo uploads |
 | `STRIPE_SECRET_KEY` | Stripe test secret key | empty |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (CLI `whsec_…` locally, Dashboard secret in production) | empty |
 | `STRIPE_SUCCESS_URL` | Checkout success redirect | `http://localhost:3000/payment/success` |
@@ -165,23 +167,24 @@ Client — `client/.env.local` (see `client/.env.local.example`):
 This submission is deployed to Vercel in two projects: `fixmate-server` (Express API) and `fixmate-client` (Next.js client). Deploy the API first, then the client; both use Node.js 24.x.
 
 - **Client:** deployed from `client/` at <https://fixmate-client-lemon.vercel.app>. Set `NEXT_PUBLIC_API_URL=https://fixmate-server-flame.vercel.app` and `NEXT_PUBLIC_SITE_URL=https://fixmate-client-lemon.vercel.app`.
-- **Server:** deployed from `server/` at <https://fixmate-server-flame.vercel.app>. `server/vercel.json` builds a bundled ESM entry (`api/index.mjs`) with `npm run build:vercel` and routes every request to it; `server/.env` values are configured as Vercel project environment variables with `NODE_ENV=production`.
+- **Server:** deployed from `server/` at <https://fixmate-server-flame.vercel.app>. The Express source is native ESM; `server/vercel.json` builds a bundled ESM entry (`api/index.mjs`) with `npm run build:vercel` and routes every request to it; `server/.env` values are configured as Vercel project environment variables with `NODE_ENV=production`.
 - **Database:** MongoDB Atlas. `MONGODB_URI` is set on the API project; `CORS_ALLOWED_ORIGINS` contains the production client origin.
 - **CORS/auth origins:** `CLIENT_URL`, `CORS_ALLOWED_ORIGINS` and `BETTER_AUTH_URL` use the deployed origins. The cross-site `fixmate_token` cookie is `httpOnly`, `secure` and `sameSite=none` in production. Roles are read from MongoDB on every request, so role changes take effect immediately; a raw ObjectId lookup fallback supports BetterAuth-created user ids.
 - **Stripe:** the webhook endpoint is <https://fixmate-server-flame.vercel.app/api/payments/webhook> and listens for `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Its signing secret is stored as `STRIPE_WEBHOOK_SECRET` on the API project. Success/cancel redirects point to `https://fixmate-client-lemon.vercel.app/payment/success` and `/payment/cancel`. Locally: `stripe listen --forward-to localhost:4000/api/payments/webhook`.
+- **Google login (optional):** placeholder `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` values keep the button hidden. Replace them on the API project and register `https://fixmate-server-flame.vercel.app/api/auth/callback/google` in Google Cloud Console to enable it; Google users get the `customer` role by default.
 - **Secrets & seed:** never commit `.env` files. Do not run the seed command in production, and rotate the seeded admin password via `ADMIN_EMAIL` / `ADMIN_PASSWORD` before seeding shared environments. `server/.env` and `client/.env.local` in this workspace contain the production field values for reference; keep the webhook secret out of source control.
 
 ### Submission configuration checklist
 
 - [x] MongoDB: `MONGODB_URI`
 - [x] Auth: `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `JWT_SECRET`
-- [x] Uploads: `IMGBB_API_KEY` (optional; uploads return `503` until a key is provided)
+- [x] Uploads: `IMGBB_API_KEY` (service and profile photo uploads)
 - [x] Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`
 - [x] Domains: `CLIENT_URL`, `CORS_ALLOWED_ORIGINS`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, plus BetterAuth trusted origins on the deployed API host
 - [x] Admin seed: `ADMIN_EMAIL`, `ADMIN_PASSWORD` (change before seeding a shared environment)
 - [x] Stripe Dashboard: webhook subscribed to `checkout.session.completed` and `checkout.session.async_payment_succeeded` at `https://fixmate-server-flame.vercel.app/api/payments/webhook`
 
-OAuth client ID/secret are not required: authentication is credentials-based.
+- [ ] Optional Google login: paste real `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` values and register the callback URI above; placeholders are installed by default
 
 ## Documentation
 

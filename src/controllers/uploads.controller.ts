@@ -2,11 +2,17 @@ import type { Request, Response } from "express";
 import { env } from "../config/env";
 import { ApiError, asyncHandler } from "../lib/http";
 
+/** Accept both a raw base64 payload and a browser FileReader data URL. */
+export const normalizeImagePayload = (value: unknown): string => {
+  const image = typeof value === "string" ? value.trim() : "";
+  return image.startsWith("data:") ? image.slice(image.indexOf(",") + 1) : image;
+};
+
 export const uploadImage = asyncHandler(async (req: Request, res: Response) => {
   if (!env.imgbbApiKey) {
     throw new ApiError(503, "ImgBB is not configured on the server");
   }
-  const image = req.body?.image as string | undefined;
+  const image = normalizeImagePayload(req.body?.image);
   if (!image) throw new ApiError(400, "No image supplied");
 
   const body = new URLSearchParams({ key: env.imgbbApiKey, image });

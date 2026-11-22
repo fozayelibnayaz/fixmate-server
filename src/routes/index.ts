@@ -20,6 +20,12 @@ apiRouter.post("/session/signin", auth.signIn);
 apiRouter.post("/session/signout", auth.signOut);
 apiRouter.get("/session/me", verifyToken, auth.me);
 
+// Optional Google login. The capability endpoint is public so the client can
+// hide the button while placeholder credentials are installed.
+apiRouter.get("/session/providers", auth.oauthProviders);
+apiRouter.get("/session/oauth/google", auth.startGoogleSignIn);
+apiRouter.get("/session/oauth/google/callback", auth.googleCallback);
+
 // Public service catalogue.
 apiRouter.get("/services/featured", services.featuredServices);
 apiRouter.get("/services", services.listServices);

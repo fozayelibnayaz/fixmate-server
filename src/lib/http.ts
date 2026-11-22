@@ -26,6 +26,10 @@ export const errorHandler = (
     res.status(error.status).json({ message: error.message });
     return;
   }
+  if (error instanceof Error && error.name === "CastError") {
+    res.status(404).json({ message: "Resource not found" });
+    return;
+  }
   console.error("[fixmate] unexpected error:", error);
   res.status(500).json({ message: "Internal server error" });
 };

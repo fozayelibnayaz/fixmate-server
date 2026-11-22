@@ -3,7 +3,7 @@ import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import { MongoClient } from "mongodb";
 import type { IncomingHttpHeaders } from "node:http";
-import { allowedOrigins, env } from "../config/env";
+import { allowedOrigins, env, googleOAuth } from "../config/env";
 
 const mongoClient = new MongoClient(env.mongodbUri);
 const database = mongoClient.db();
@@ -14,6 +14,14 @@ export const auth = betterAuth({
   secret: env.betterAuthSecret,
   database: mongodbAdapter(database, { client: mongoClient, transaction: false }),
   trustedOrigins: allowedOrigins,
+  socialProviders: googleOAuth.enabled
+    ? {
+        google: {
+          clientId: googleOAuth.clientId,
+          clientSecret: googleOAuth.clientSecret,
+        },
+      }
+    : {},
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 6,

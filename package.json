@@ -2,6 +2,7 @@
   "name": "@fixmate/server",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "FixMate Express API with MongoDB, BetterAuth, JWT and Stripe",
   "scripts": {
     "dev": "nodemon -w src -x tsx --env-file .env src/main.ts",

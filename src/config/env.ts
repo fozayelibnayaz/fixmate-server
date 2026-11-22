@@ -1,6 +1,24 @@
 const first = (...values: Array<string | undefined>): string | undefined =>
   values.find((value) => Boolean(value && value.trim()));
 
+/** Placeholder OAuth keys must never register a half-configured Google provider. */
+export const isUsableGoogleCredential = (value: string): boolean => {
+  const credential = value.trim();
+  return (
+    credential.length > 12 &&
+    !/placeholder|replace|changeme|change-me|your[-_ ]?google|example|dummy|todo|xxx/i.test(credential)
+  );
+};
+
+const googleClientId = first(process.env.GOOGLE_CLIENT_ID) ?? "";
+const googleClientSecret = first(process.env.GOOGLE_CLIENT_SECRET) ?? "";
+
+export const googleOAuth = {
+  clientId: googleClientId,
+  clientSecret: googleClientSecret,
+  enabled: isUsableGoogleCredential(googleClientId) && isUsableGoogleCredential(googleClientSecret),
+};
+
 export const env = {
   nodeEnv: first(process.env.NODE_ENV, "development"),
   port: Number(first(process.env.PORT, "4000")),

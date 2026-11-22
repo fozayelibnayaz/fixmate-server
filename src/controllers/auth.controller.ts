@@ -1,9 +1,11 @@
 import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
-import { isProduction } from "../config/env";
+import { Types } from "mongoose";
+import type { Role } from "../config/constants";
+import { env, googleOAuth, isProduction } from "../config/env";
 import { ApiError, asyncHandler } from "../lib/http";
 import { TOKEN_COOKIE, signToken } from "../lib/jwt";
-import { auth } from "../lib/auth";
+import { auth, getBetterAuthSession } from "../lib/auth";
 import { User } from "../models/User";
 import { signInSchema, signUpSchema } from "../lib/validation";
 import type { IUser } from "../models/User";
@@ -31,7 +33,9 @@ export const publicUser = (user: IUser) => ({
   createdAt: user.createdAt,
 });
 
-const issueToken = (res: Response, user: IUser) => {
+type TokenUser = Pick<IUser, "_id" | "name" | "email" | "role" | "image">;
+
+const issueToken = (res: Response, user: TokenUser) => {
   const token = signToken({
     sub: user._id,
     email: user.email,
@@ -41,6 +45,26 @@ const issueToken = (res: Response, user: IUser) => {
   });
   res.cookie(TOKEN_COOKIE, token, cookieOptions);
   return token;
+};
+
+const ROLE_HOME: Record<Role, string> = {
+  customer: "/dashboard/customer",
+  technician: "/dashboard/technician",
+  admin: "/dashboard/admin",
+};
+
+/** Accept only same-site relative paths for post-login redirects. */
+export const safeNextPath = (value: unknown): string => {
+  if (
+    typeof value !== "string" ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\") ||
+    Array.from(value).some((character) => character.charCodeAt(0) < 32)
+  ) {
+    return "";
+  }
+  return value;
 };
 
 export const signUp = asyncHandler(async (req: Request, res: Response) => {
@@ -113,4 +137,76 @@ export const signOut = asyncHandler(async (req: Request, res: Response) => {
     // Clearing our JWT cookie is enough to end the FixMate session.
   }
   res.json({ message: "Signed out" });
+});
+
+/** Lets the client hide social login while placeholder keys are installed. */
+export const oauthProviders = (_req: Request, res: Response) => {
+  res.json({ providers: { google: googleOAuth.enabled } });
+};
+
+/**
+ * Starts Google OAuth on the API host so BetterAuth's state cookie stays
+ * first-party. The browser is redirected back here after Google approves.
+ */
+export const startGoogleSignIn = asyncHandler(async (req: Request, res: Response) => {
+  if (!googleOAuth.enabled) throw new ApiError(503, "Google sign-in is not configured");
+
+  const callbackURL = new URL("/api/session/oauth/google/callback", env.betterAuthUrl);
+  const next = safeNextPath(req.query.next);
+  if (next) callbackURL.searchParams.set("next", next);
+
+  const authResponse = await auth.api.signInSocial({
+    body: {
+      provider: "google",
+      callbackURL: callbackURL.toString(),
+      errorCallbackURL: `${env.clientUrl}/sign-in?error=google`,
+    },
+    headers: fromNodeHeaders(req.headers),
+    asResponse: true,
+  });
+
+  if (!authResponse.ok) {
+    const detail = (await authResponse.json().catch(() => null)) as { message?: string } | null;
+    throw new ApiError(502, detail?.message ?? "Could not start Google sign-in");
+  }
+
+  for (const cookie of authResponse.headers.getSetCookie()) {
+    res.append("Set-Cookie", cookie);
+  }
+
+  const target = authResponse.headers.get("location");
+  if (!target) throw new ApiError(502, "Google sign-in did not return an authorization URL");
+  res.redirect(302, target);
+});
+
+/** Exchanges the BetterAuth session created by Google for our role-aware JWT. */
+export const googleCallback = asyncHandler(async (req: Request, res: Response) => {
+  const session = await getBetterAuthSession(req.headers);
+  if (!session?.user?.email) throw new ApiError(401, "Google sign-in session not found");
+
+  const email = session.user.email.toLowerCase();
+  const dbUser = await User.findOne({ email });
+  let rawUser: Record<string, unknown> | null = null;
+  if (!dbUser && Types.ObjectId.isValid(session.user.id)) {
+    rawUser = await User.collection.findOne({ _id: new Types.ObjectId(session.user.id) });
+  }
+
+  const sessionRole = (session.user as { role?: Role }).role;
+  const role = (dbUser?.role ??
+    (rawUser?.role as Role | undefined) ??
+    sessionRole ??
+    "customer") as Role;
+  const stringValue = (value: unknown) => (typeof value === "string" ? value : "");
+  const id = dbUser ? String(dbUser._id) : String(rawUser?._id ?? session.user.id);
+
+  issueToken(res, {
+    _id: id,
+    email,
+    role,
+    name: dbUser?.name || stringValue(rawUser?.name) || session.user.name || "FixMate user",
+    image: dbUser?.image || stringValue(rawUser?.image) || stringValue(session.user.image),
+  });
+
+  const next = safeNextPath(req.query.next);
+  res.redirect(302, `${env.clientUrl}${next || ROLE_HOME[role]}`);
 });
